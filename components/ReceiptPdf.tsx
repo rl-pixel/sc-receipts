@@ -12,9 +12,9 @@ const PAPER = {
 
 const SP = {
   pageX: 56,
-  pageY: 64,
-  block: 28,
-  blockSm: 20,
+  pageY: 50,
+  block: 22,
+  blockSm: 16,
   rowGap: 10,
   rowGapSm: 6,
 };
@@ -194,7 +194,7 @@ export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
       author="Studio Chrono"
       subject="Receipt"
     >
-      <Page size="LETTER" style={styles.page}>
+      <Page size="LETTER" wrap={false} style={styles.page}>
         <View style={{ alignItems: "flex-end" }}>
           <Text style={styles.wordmark}>Studio Chrono</Text>
         </View>
