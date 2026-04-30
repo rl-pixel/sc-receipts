@@ -100,8 +100,7 @@ export default function NewReceiptPage() {
   const step4Done =
     !!form.payment.method &&
     (form.payment.method !== "Other" || !!form.payment.bankAccountId);
-  const step5Done = true;
-  const allDone = step1Done && step2Done && step3Done && step4Done && step5Done;
+  const allDone = step1Done && step2Done && step3Done && step4Done;
 
   function patch<K extends keyof FormState>(key: K, value: Partial<FormState[K]>) {
     setForm((f) => ({ ...f, [key]: { ...(f[key] as object), ...value } }));
@@ -191,7 +190,7 @@ export default function NewReceiptPage() {
           What did you sell?
         </h1>
         <p className="text-base text-muted mt-1.5">
-          Fill in five things. Voice support coming next.
+          Fill in four things. Voice support coming next.
         </p>
 
         <div className="mt-7 bg-white border border-divider rounded-2xl divide-y divide-divider">
@@ -260,6 +259,25 @@ export default function NewReceiptPage() {
                 <option key={b.name} value={b.name} />
               ))}
             </datalist>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1">
+              <CheckRow
+                label="Box"
+                checked={form.watch.hasBox}
+                onChange={(v) => patch("watch", { hasBox: v })}
+              />
+              <CheckRow
+                label="Papers"
+                checked={form.watch.hasPapers}
+                onChange={(v) => patch("watch", { hasPapers: v })}
+              />
+              <PillToggle
+                value={form.watch.condition}
+                options={CONDITIONS.map((c) => ({ value: c, label: c }))}
+                onChange={(v) => patch("watch", { condition: v })}
+                size="sm"
+                ariaLabel="Condition"
+              />
+            </div>
           </Step>
 
           <Step n={3} title="Amount paid" done={step3Done}>
@@ -300,20 +318,6 @@ export default function NewReceiptPage() {
             ) : null}
           </Step>
 
-          <Step n={5} title="Box and papers" done={step5Done}>
-            <div className="flex gap-5">
-              <CheckRow
-                label="Box"
-                checked={form.watch.hasBox}
-                onChange={(v) => patch("watch", { hasBox: v })}
-              />
-              <CheckRow
-                label="Papers"
-                checked={form.watch.hasPapers}
-                onChange={(v) => patch("watch", { hasPapers: v })}
-              />
-            </div>
-          </Step>
         </div>
 
         {sellers.length > 0 ? (
@@ -359,13 +363,20 @@ export default function NewReceiptPage() {
           </div>
         ) : null}
 
-        <button
-          type="button"
-          onClick={() => setShowMore((v) => !v)}
-          className="mt-6 text-sm text-accent hover:text-accent-deep"
-        >
-          {showMore ? "− Hide everything else" : "+ Edit details"}
-        </button>
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setShowMore((v) => !v)}
+            className="text-sm text-accent hover:text-accent-deep"
+          >
+            {showMore ? "− Hide optional fields" : "+ Optional fields"}
+          </button>
+          {!showMore ? (
+            <p className="text-xs text-muted mt-1">
+              Date, confirmation #, ref #, year, shipping, tax, notes — only if you need them. Defaults handle the rest.
+            </p>
+          ) : null}
+        </div>
 
         {showMore ? (
           <div className="mt-4 flex flex-col gap-5">
@@ -415,18 +426,6 @@ export default function NewReceiptPage() {
                 value={form.watch.serial}
                 onChange={(e) => patch("watch", { serial: e.target.value })}
               />
-              <div className="flex flex-col gap-1.5">
-                <span className="text-sm text-muted">Condition</span>
-                <div>
-                  <PillToggle
-                    value={form.watch.condition}
-                    options={CONDITIONS.map((c) => ({ value: c, label: c }))}
-                    onChange={(v) => patch("watch", { condition: v })}
-                    size="sm"
-                    ariaLabel="Condition"
-                  />
-                </div>
-              </div>
               <Field
                 label="Shipping"
                 prefix="$"
