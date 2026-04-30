@@ -123,7 +123,8 @@ export default function NewReceiptPage() {
   const amountDone = subtotalCents > 0;
   const methodDone =
     !!form.payment.method &&
-    (form.payment.method !== "Other" || !!form.payment.bankAccountId);
+    (form.payment.method !== "Other" ||
+      (!!form.payment.methodOther.trim() && !!form.payment.bankAccountId));
   const allDone = customerDone && watchDone && amountDone && methodDone;
 
   function patch<K extends keyof FormState>(key: K, value: Partial<FormState[K]>) {
@@ -342,23 +343,24 @@ export default function NewReceiptPage() {
           </Sec>
 
           <Sec title="Amount paid" done={amountDone}>
-            <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
-              <LineInput
-                prefix="$"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={form.payment.amountUsd}
-                onChange={(e) => patch("payment", { amountUsd: e.target.value })}
-                className="text-2xl"
-              />
+            <LineInput
+              prefix="$"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={form.payment.amountUsd}
+              onChange={(e) => patch("payment", { amountUsd: e.target.value })}
+              className="text-2xl"
+            />
+            <label className="flex items-center gap-2 text-sm text-muted">
+              Date
               <input
                 type="date"
                 value={form.payment.date}
                 onChange={(e) => patch("payment", { date: e.target.value })}
-                className="bg-transparent border-b border-divider text-sm text-muted py-2 outline-none focus:border-accent nums"
+                className="bg-white border border-divider rounded-md px-2.5 py-1.5 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft nums"
                 aria-label="Date received"
               />
-            </div>
+            </label>
           </Sec>
 
           <Sec title="How they paid" done={methodDone}>
@@ -369,21 +371,29 @@ export default function NewReceiptPage() {
               size="sm"
               ariaLabel="Payment method"
             />
-            {form.payment.method !== "Other" && linkedBank ? (
+            {form.payment.method === "Other" ? (
+              <>
+                <LineInput
+                  placeholder="Cash, Venmo, Check…"
+                  value={form.payment.methodOther}
+                  onChange={(e) => patch("payment", { methodOther: e.target.value })}
+                />
+                {banks.length > 0 ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-muted">Into</span>
+                    <PillToggle
+                      value={form.payment.bankAccountId}
+                      options={banks.map((b) => ({ value: b.id, label: b.label }))}
+                      onChange={(id) => patch("payment", { bankAccountId: id })}
+                      size="sm"
+                      ariaLabel="Bank account"
+                    />
+                  </div>
+                ) : null}
+              </>
+            ) : linkedBank ? (
               <div className="text-sm text-muted">
                 Into <span className="text-ink">{linkedBank.label}</span>
-              </div>
-            ) : null}
-            {form.payment.method === "Other" && banks.length > 0 ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-muted">Into</span>
-                <PillToggle
-                  value={form.payment.bankAccountId}
-                  options={banks.map((b) => ({ value: b.id, label: b.label }))}
-                  onChange={(id) => patch("payment", { bankAccountId: id })}
-                  size="sm"
-                  ariaLabel="Bank account"
-                />
               </div>
             ) : null}
             {reveals.confirmation ? (
@@ -506,12 +516,15 @@ export default function NewReceiptPage() {
 }
 
 function prepareForSubmit(form: FormState): FormState {
-  const next = { ...form };
+  const next = { ...form, payment: { ...form.payment } };
   if (form.customer.addressLines && !form.customer.street) {
     next.customer = { ...next.customer, street: form.customer.addressLines };
   }
   if (!form.payment.sender && form.customer.name) {
-    next.payment = { ...next.payment, sender: form.customer.name };
+    next.payment.sender = form.customer.name;
+  }
+  if (form.payment.method === "Other" && form.payment.methodOther.trim()) {
+    next.payment.method = form.payment.methodOther.trim() as FormState["payment"]["method"];
   }
   return next;
 }

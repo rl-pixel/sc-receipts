@@ -14,6 +14,7 @@ export function emptyForm(): FormState {
       date: `${yyyy}-${mm}-${dd}`,
       confirmation: "",
       method: "Zelle",
+      methodOther: "",
       bankAccountId: "",
     },
     customer: {

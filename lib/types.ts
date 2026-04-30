@@ -13,6 +13,7 @@ export type FormState = {
     date: string;
     confirmation: string;
     method: PaymentMethod;
+    methodOther: string;
     bankAccountId: string;
   };
   customer: {
