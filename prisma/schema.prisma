@@ -1,0 +1,111 @@
+// Studio Chrono receipt generator — Prisma schema
+// Money is stored as integer cents to avoid float/decimal issues on SQLite.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  phone     String?
+  street    String?
+  city      String?
+  state     String?
+  zip       String?
+  country   String?   @default("USA")
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  receipts  Receipt[]
+}
+
+model Receipt {
+  id            String  @id @default(cuid())
+  receiptNumber String  @unique
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+
+  brand           String
+  model           String
+  referenceNumber String?
+  year            Int?
+  condition       String
+  hasBox          Boolean @default(false)
+  hasPapers       Boolean @default(false)
+  serial          String?
+
+  subtotalCents Int
+  shippingCents Int @default(0)
+  taxCents      Int @default(0)
+  totalCents    Int
+
+  paymentMethod        String  @default("Zelle")
+  paymentSender        String?
+  paymentConfirmation  String?
+  paymentDate          DateTime
+  paymentScreenshotUrl String?
+
+  bankAccountId String?
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+
+  soldBy                String
+  commissionType        String?
+  commissionValue       Float?
+  commissionAmountCents Int?
+
+  sentAt      DateTime?
+  sentToEmail String?
+
+  pdfUrl    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([customerId])
+  @@index([soldBy])
+}
+
+model BankAccount {
+  id           String  @id @default(cuid())
+  label        String
+  bankName     String?
+  last4        String?
+  acceptsZelle Boolean @default(false)
+  acceptsWire  Boolean @default(true)
+  active       Boolean @default(true)
+  sortOrder    Int     @default(0)
+  createdAt    DateTime @default(now())
+  receipts     Receipt[]
+}
+
+model Seller {
+  id                     String  @id @default(cuid())
+  name                   String  @unique
+  defaultCommissionType  String?
+  defaultCommissionValue Float?
+  active                 Boolean @default(true)
+  sortOrder              Int     @default(0)
+  createdAt              DateTime @default(now())
+}
+
+model Brand {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  useCount  Int     @default(0)
+  createdAt DateTime @default(now())
+}
+
+model AppSetting {
+  id        String  @id @default(cuid())
+  key       String  @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
