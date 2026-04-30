@@ -27,41 +27,29 @@ export default async function ReceiptDetailPage({
   return (
     <div className="min-h-full pb-16">
       <TopNav active="history" />
-      <main className="max-w-4xl mx-auto px-4 pt-6">
-        {justCreated ? (
-          <div className="mb-6 bg-card border border-success/30 rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <div className="text-success text-sm font-medium">✓ Receipt saved</div>
-              <div className="text-xs text-muted mt-0.5">
-                {receipt.receiptNumber} · {receipt.customer.email}
-              </div>
-            </div>
-            <Link
-              href="/"
-              className="text-sm text-muted hover:text-ink"
-            >
-              New →
+      <main className="max-w-3xl mx-auto px-4 pt-6">
+        <div className="flex items-center justify-between text-sm">
+          {justCreated ? (
+            <span className="text-success font-medium">✓ Receipt saved</span>
+          ) : (
+            <Link href="/history" className="text-muted hover:text-ink">
+              ← History
             </Link>
-          </div>
-        ) : (
-          <Link
-            href="/history"
-            className="text-sm text-muted hover:text-ink"
-          >
-            ← History
-          </Link>
-        )}
+          )}
+          <span className="text-muted nums">{receipt.receiptNumber}</span>
+        </div>
 
-        <div className="mt-4 grid md:grid-cols-[1fr_auto] gap-6 items-start">
-          <div>
-            <div className="text-sm text-muted">
-              {receipt.receiptNumber}
-            </div>
-            <h1 className="text-3xl mt-1 font-bold tracking-tight text-ink">
-              {receipt.customer.name}
-            </h1>
-            <p className="text-muted text-sm mt-1">{receipt.customer.email}</p>
-          </div>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight text-ink">
+          {receipt.customer.name}
+        </h1>
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-2xl font-semibold text-ink nums">
+            {formatUSD(receipt.totalCents)}
+          </span>
+          <span className="text-muted text-sm">{receipt.customer.email}</span>
+        </div>
+
+        <div className="mt-5">
           <ReceiptDetailActions
             id={receipt.id}
             email={receipt.customer.email}

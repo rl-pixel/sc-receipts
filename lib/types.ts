@@ -50,11 +50,11 @@ export type FormState = {
 export type ReceiptPdfData = {
   receiptNumber: string;
   issuedAt: string;
+  soldBy: string;
   business: {
     name: string;
     location: string;
     website: string;
-    footer: string;
   };
   customer: {
     name: string;

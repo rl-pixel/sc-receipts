@@ -10,15 +10,24 @@ const PAPER = {
   successBg: "#E8F5EE",
 };
 
+const SP = {
+  pageX: 56,
+  pageY: 64,
+  block: 28,
+  blockSm: 20,
+  rowGap: 10,
+  rowGapSm: 6,
+};
+
 const styles = StyleSheet.create({
   page: {
     backgroundColor: PAPER.bg,
     color: PAPER.ink,
-    paddingHorizontal: 43,
-    paddingVertical: 50,
+    paddingHorizontal: SP.pageX,
+    paddingVertical: SP.pageY,
     fontFamily: "Helvetica",
     fontSize: 10,
-    lineHeight: 1.45,
+    lineHeight: 1.5,
   },
   wordmark: {
     fontFamily: "Helvetica-Bold",
@@ -29,7 +38,7 @@ const styles = StyleSheet.create({
   divider: {
     borderBottomWidth: 0.5,
     borderBottomColor: PAPER.divider,
-    marginVertical: 18,
+    marginVertical: SP.block,
   },
   rowBetween: {
     flexDirection: "row",
@@ -38,13 +47,14 @@ const styles = StyleSheet.create({
   },
   receiptHeader: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 24,
+    fontSize: 26,
     letterSpacing: -0.4,
+    lineHeight: 1.1,
   },
   receiptMeta: {
-    fontSize: 9,
+    fontSize: 9.5,
     color: PAPER.muted,
-    marginTop: 4,
+    marginTop: 6,
   },
   receiptId: {
     fontSize: 10,
@@ -56,10 +66,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignSelf: "flex-end",
     backgroundColor: PAPER.successBg,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: 999,
-    marginTop: 4,
+    marginTop: 8,
   },
   paidText: {
     color: PAPER.successText,
@@ -69,14 +79,14 @@ const styles = StyleSheet.create({
   },
   twoCol: {
     flexDirection: "row",
-    gap: 36,
+    gap: 48,
   },
   colHeader: {
     fontSize: 8,
     color: PAPER.muted,
     textTransform: "uppercase",
-    letterSpacing: 1.4,
-    marginBottom: 6,
+    letterSpacing: 1.5,
+    marginBottom: 8,
   },
   colBody: {
     fontSize: 10,
@@ -85,29 +95,31 @@ const styles = StyleSheet.create({
   colMuted: {
     fontSize: 10,
     color: PAPER.muted,
+    lineHeight: 1.55,
   },
   itemRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    gap: 16,
   },
   itemTitle: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 11.5,
+    fontSize: 12,
   },
   itemMeta: {
     fontSize: 9.5,
     color: PAPER.muted,
-    marginTop: 3,
+    marginTop: 4,
   },
   amount: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontFamily: "Helvetica",
   },
   totalsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   totalsLabel: {
     fontSize: 10,
@@ -120,11 +132,12 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingTop: 10,
+    alignItems: "center",
+    paddingTop: 14,
     paddingBottom: 4,
     borderTopWidth: 0.5,
     borderTopColor: PAPER.divider,
-    marginTop: 6,
+    marginTop: 10,
   },
   totalLabel: {
     fontFamily: "Helvetica-Bold",
@@ -138,22 +151,22 @@ const styles = StyleSheet.create({
   paidLine: {
     fontSize: 9.5,
     color: PAPER.muted,
-    marginTop: 8,
+    marginTop: 12,
   },
   thankYou: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: PAPER.ink,
-    lineHeight: 1.55,
+    lineHeight: 1.6,
   },
   signature: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: PAPER.ink,
-    marginTop: 6,
+    marginTop: 8,
   },
   footer: {
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 3,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
     fontSize: 9,
     color: PAPER.muted,
   },
@@ -168,7 +181,7 @@ function formatUSD(cents: number): string {
 }
 
 export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
-  const { customer, watch, payment, totals, receiptNumber, issuedAt, business } = data;
+  const { customer, watch, payment, totals, receiptNumber, issuedAt, soldBy, business } = data;
   const shipFull = customer.addressLines
     ? customer.addressLines
     : [customer.street, [customer.city, customer.state].filter(Boolean).join(", "), customer.zip]
@@ -196,7 +209,7 @@ export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
           <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.receiptId}>{receiptNumber}</Text>
             <View style={styles.paidPill}>
-              <Text style={styles.paidText}>PAID IN FULL ✓</Text>
+              <Text style={styles.paidText}>PAID IN FULL</Text>
             </View>
           </View>
         </View>
@@ -205,12 +218,12 @@ export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
 
         <View style={styles.twoCol}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.colHeader}>Bill To</Text>
+            <Text style={styles.colHeader}>Bill to</Text>
             <Text style={styles.colBody}>{customer.name}</Text>
             <Text style={styles.colMuted}>{customer.email}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.colHeader}>Ship To</Text>
+            <Text style={styles.colHeader}>Ship to</Text>
             <Text style={styles.colBody}>{customer.name}</Text>
             {shipFull ? <Text style={styles.colMuted}>{shipFull}</Text> : null}
           </View>
@@ -219,28 +232,27 @@ export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
         <View style={styles.divider} />
 
         <Text style={styles.colHeader}>Item</Text>
-        <View style={[styles.itemRow, { marginTop: 6 }]}>
+        <View style={[styles.itemRow, { marginTop: 8 }]}>
           <View style={{ flex: 1 }}>
             <Text style={styles.itemTitle}>
               {watch.brand} {watch.model}
             </Text>
-            {watch.referenceNumber ? (
+            {(watch.referenceNumber || watch.year || watch.condition) ? (
               <Text style={styles.itemMeta}>
-                Ref. {watch.referenceNumber}
-                {watch.year ? ` · ${watch.year}` : ""}
-                {watch.condition ? ` · ${watch.condition}` : ""}
+                {[
+                  watch.referenceNumber ? `Ref. ${watch.referenceNumber}` : null,
+                  watch.year || null,
+                  watch.condition || null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </Text>
-            ) : (
-              <Text style={styles.itemMeta}>
-                {watch.year ? `${watch.year} · ` : ""}
-                {watch.condition}
-              </Text>
-            )}
+            ) : null}
             {(watch.hasBox || watch.hasPapers) ? (
               <Text style={styles.itemMeta}>
-                {watch.hasBox ? "Box" : ""}
-                {watch.hasBox && watch.hasPapers ? "  ·  " : ""}
-                {watch.hasPapers ? "Papers" : ""}
+                {[watch.hasBox ? "Box" : null, watch.hasPapers ? "Papers" : null]
+                  .filter(Boolean)
+                  .join("  ·  ")}
               </Text>
             ) : null}
           </View>
@@ -257,10 +269,12 @@ export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
           <Text style={styles.totalsLabel}>Shipping (insured)</Text>
           <Text style={styles.totalsValue}>{formatUSD(totals.shippingCents)}</Text>
         </View>
-        <View style={styles.totalsRow}>
-          <Text style={styles.totalsLabel}>Tax</Text>
-          <Text style={styles.totalsValue}>{formatUSD(totals.taxCents)}</Text>
-        </View>
+        {totals.taxCents > 0 ? (
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLabel}>Tax</Text>
+            <Text style={styles.totalsValue}>{formatUSD(totals.taxCents)}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>TOTAL PAID</Text>
@@ -278,13 +292,14 @@ export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
           Thank you for your purchase. Your watch will ship insured within 2 business days.
           Tracking will follow.
         </Text>
-        <Text style={styles.signature}>— Joe, Studio Chrono</Text>
+        <Text style={styles.signature}>— {soldBy || "Studio Chrono"}</Text>
 
         <View style={styles.divider} />
 
         <View style={styles.footer}>
-          <Text>{business.footer}</Text>
-          <Text>{business.website} · {business.location}</Text>
+          <Text>{business.website}</Text>
+          <Text>·</Text>
+          <Text>{business.location}</Text>
         </View>
       </Page>
     </Document>

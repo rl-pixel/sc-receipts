@@ -97,7 +97,9 @@ export default function NewReceiptPage() {
   const step2Done =
     form.watch.brand.trim().length > 0 && form.watch.model.trim().length > 0;
   const step3Done = subtotalCents > 0;
-  const step4Done = !!form.payment.method;
+  const step4Done =
+    !!form.payment.method &&
+    (form.payment.method !== "Other" || !!form.payment.bankAccountId);
   const step5Done = true;
   const allDone = step1Done && step2Done && step3Done && step4Done && step5Done;
 
@@ -315,7 +317,7 @@ export default function NewReceiptPage() {
         </div>
 
         {sellers.length > 0 ? (
-          <div className="mt-5 flex items-center gap-3 text-sm">
+          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
             <span className="text-muted">Sold by</span>
             <PillToggle
               value={form.seller.soldBy}
@@ -324,153 +326,131 @@ export default function NewReceiptPage() {
               size="sm"
               ariaLabel="Sold by"
             />
+            <PillToggle
+              value={form.seller.commissionType ?? "none"}
+              options={[
+                { value: "none", label: "No commission" },
+                { value: "percent", label: "%" },
+                { value: "flat", label: "$" },
+              ]}
+              onChange={(v) =>
+                patch("seller", {
+                  commissionType: v === "none" ? null : (v as "percent" | "flat"),
+                  commissionValue: v === "none" ? "" : form.seller.commissionValue,
+                })
+              }
+              size="sm"
+              ariaLabel="Commission type"
+            />
+            {form.seller.commissionType ? (
+              <input
+                inputMode="decimal"
+                placeholder={form.seller.commissionType === "percent" ? "10" : "200"}
+                value={form.seller.commissionValue}
+                onChange={(e) => patch("seller", { commissionValue: e.target.value })}
+                className="w-20 bg-white border border-divider rounded-md px-2 py-1.5 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
+              />
+            ) : null}
+            {commissionAmountCents != null && commissionAmountCents > 0 ? (
+              <span className="text-xs text-success nums">
+                = {formatUSD(commissionAmountCents)}
+              </span>
+            ) : null}
           </div>
         ) : null}
 
         <button
           type="button"
           onClick={() => setShowMore((v) => !v)}
-          className="mt-5 text-sm text-accent hover:text-accent-deep"
+          className="mt-6 text-sm text-accent hover:text-accent-deep"
         >
-          {showMore ? "− Hide options" : "+ More options"}
+          {showMore ? "− Hide everything else" : "+ Edit details"}
         </button>
 
         {showMore ? (
-          <div className="mt-4 bg-white border border-divider rounded-2xl p-5 flex flex-col gap-5">
-            <FieldGroup title="Payment details">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field
-                  label="Sender"
-                  placeholder={form.customer.name || "Auto: customer name"}
-                  value={form.payment.sender}
-                  onChange={(e) => patch("payment", { sender: e.target.value })}
-                />
-                <Field
-                  label="Date received"
-                  type="date"
-                  value={form.payment.date}
-                  onChange={(e) => patch("payment", { date: e.target.value })}
-                />
-                <Field
-                  label="Confirmation #"
-                  placeholder="BAC1234567"
-                  value={form.payment.confirmation}
-                  onChange={(e) => patch("payment", { confirmation: e.target.value })}
-                />
-                <Field
-                  label="Phone"
-                  type="tel"
-                  inputMode="tel"
-                  placeholder="Optional"
-                  value={form.customer.phone}
-                  onChange={(e) => patch("customer", { phone: e.target.value })}
-                />
-              </div>
-            </FieldGroup>
-
-            <FieldGroup title="Watch details">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Field
-                  label="Reference #"
-                  placeholder="126610LN"
-                  value={form.watch.referenceNumber}
-                  onChange={(e) => patch("watch", { referenceNumber: e.target.value })}
-                />
-                <Field
-                  label="Year"
-                  inputMode="numeric"
-                  placeholder="2024"
-                  value={form.watch.year}
-                  onChange={(e) => patch("watch", { year: e.target.value })}
-                />
-                <Field
-                  label="Serial"
-                  placeholder="Optional"
-                  value={form.watch.serial}
-                  onChange={(e) => patch("watch", { serial: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-1">
-                <span className="text-sm text-muted">Condition</span>
-                <PillToggle
-                  value={form.watch.condition}
-                  options={CONDITIONS.map((c) => ({ value: c, label: c }))}
-                  onChange={(v) => patch("watch", { condition: v })}
-                  size="sm"
-                  ariaLabel="Condition"
-                />
-              </div>
-            </FieldGroup>
-
-            <FieldGroup title="Totals">
-              <div className="grid grid-cols-2 gap-3">
-                <Field
-                  label="Shipping"
-                  prefix="$"
-                  inputMode="decimal"
-                  placeholder="29.00"
-                  value={form.totals.shippingUsd}
-                  onChange={(e) => patch("totals", { shippingUsd: e.target.value })}
-                />
-                <Field
-                  label="Tax"
-                  prefix="$"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={form.totals.taxUsd}
-                  onChange={(e) => patch("totals", { taxUsd: e.target.value })}
-                />
-              </div>
-            </FieldGroup>
-
-            <FieldGroup title="Commission">
-              <div className="flex items-end gap-3 flex-wrap">
-                <PillToggle
-                  value={form.seller.commissionType ?? "none"}
-                  options={[
-                    { value: "none", label: "None" },
-                    { value: "percent", label: "%" },
-                    { value: "flat", label: "$" },
-                  ]}
-                  onChange={(v) =>
-                    patch("seller", {
-                      commissionType: v === "none" ? null : (v as "percent" | "flat"),
-                      commissionValue: v === "none" ? "" : form.seller.commissionValue,
-                    })
-                  }
-                  size="sm"
-                  ariaLabel="Commission type"
-                />
-                {form.seller.commissionType ? (
-                  <div className="flex-1 min-w-[140px]">
-                    <Field
-                      label={form.seller.commissionType === "percent" ? "Percent" : "Flat amount"}
-                      inputMode="decimal"
-                      prefix={form.seller.commissionType === "flat" ? "$" : ""}
-                      suffix={form.seller.commissionType === "percent" ? "%" : ""}
-                      placeholder={form.seller.commissionType === "percent" ? "10" : "200"}
-                      value={form.seller.commissionValue}
-                      onChange={(e) => patch("seller", { commissionValue: e.target.value })}
-                    />
-                  </div>
-                ) : null}
-              </div>
-              {commissionAmountCents != null && commissionAmountCents > 0 ? (
-                <p className="text-xs text-muted">
-                  {form.seller.soldBy}'s commission:{" "}
-                  <span className="text-success">{formatUSD(commissionAmountCents)}</span>
-                </p>
-              ) : null}
-            </FieldGroup>
-
-            <FieldGroup title="Notes">
-              <Textarea
-                rows={2}
-                placeholder="Internal notes (not on the receipt)"
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+          <div className="mt-4 flex flex-col gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+              <Field
+                label="Sender"
+                placeholder={form.customer.name || "Auto: customer name"}
+                value={form.payment.sender}
+                onChange={(e) => patch("payment", { sender: e.target.value })}
               />
-            </FieldGroup>
+              <Field
+                label="Date received"
+                type="date"
+                value={form.payment.date}
+                onChange={(e) => patch("payment", { date: e.target.value })}
+              />
+              <Field
+                label="Confirmation #"
+                placeholder="BAC1234567"
+                value={form.payment.confirmation}
+                onChange={(e) => patch("payment", { confirmation: e.target.value })}
+              />
+              <Field
+                label="Phone"
+                type="tel"
+                inputMode="tel"
+                placeholder="Optional"
+                value={form.customer.phone}
+                onChange={(e) => patch("customer", { phone: e.target.value })}
+              />
+              <Field
+                label="Reference #"
+                placeholder="126610LN"
+                value={form.watch.referenceNumber}
+                onChange={(e) => patch("watch", { referenceNumber: e.target.value })}
+              />
+              <Field
+                label="Year"
+                inputMode="numeric"
+                placeholder="2024"
+                value={form.watch.year}
+                onChange={(e) => patch("watch", { year: e.target.value })}
+              />
+              <Field
+                label="Serial"
+                placeholder="Optional"
+                value={form.watch.serial}
+                onChange={(e) => patch("watch", { serial: e.target.value })}
+              />
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm text-muted">Condition</span>
+                <div>
+                  <PillToggle
+                    value={form.watch.condition}
+                    options={CONDITIONS.map((c) => ({ value: c, label: c }))}
+                    onChange={(v) => patch("watch", { condition: v })}
+                    size="sm"
+                    ariaLabel="Condition"
+                  />
+                </div>
+              </div>
+              <Field
+                label="Shipping"
+                prefix="$"
+                inputMode="decimal"
+                placeholder="29.00"
+                value={form.totals.shippingUsd}
+                onChange={(e) => patch("totals", { shippingUsd: e.target.value })}
+              />
+              <Field
+                label="Tax"
+                prefix="$"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={form.totals.taxUsd}
+                onChange={(e) => patch("totals", { taxUsd: e.target.value })}
+              />
+            </div>
+            <Textarea
+              label="Internal notes"
+              rows={2}
+              placeholder="Stays private — not on the receipt"
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+            />
           </div>
         ) : null}
 

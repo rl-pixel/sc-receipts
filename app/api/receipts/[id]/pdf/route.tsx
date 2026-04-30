@@ -7,14 +7,13 @@ export const runtime = "nodejs";
 
 async function getBusinessSettings() {
   const settings = await db.appSetting.findMany({
-    where: { key: { in: ["businessName", "businessLocation", "businessFooter", "businessWebsite"] } },
+    where: { key: { in: ["businessName", "businessLocation", "businessWebsite"] } },
   });
   const m = Object.fromEntries(settings.map((s) => [s.key, s.value]));
   return {
     name: m.businessName ?? "Studio Chrono",
     location: m.businessLocation ?? "Miami, FL",
     website: m.businessWebsite ?? "studiochrono.com",
-    footer: m.businessFooter ?? "5.0 ★ on Chrono24 · 315+ reviews",
   };
 }
 
@@ -34,6 +33,7 @@ export async function GET(
   const data: ReceiptPdfData = {
     receiptNumber: receipt.receiptNumber,
     issuedAt: new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(receipt.createdAt),
+    soldBy: receipt.soldBy,
     business,
     customer: {
       name: receipt.customer.name,
