@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
-import { Field, Textarea, LineInput } from "@/components/Field";
+import { Textarea, LineInput } from "@/components/Field";
 import { PillToggle } from "@/components/PillToggle";
 import {
   emptyForm,
@@ -16,7 +16,6 @@ import {
   PAYMENT_METHODS,
   type FormState,
   type RecentCustomer,
-  type RecentWatch,
 } from "@/lib/types";
 import { dollarsToCents, formatUSD } from "@/lib/money";
 import { resolveCommissionCents } from "@/lib/commission";
@@ -30,25 +29,51 @@ type Seller = {
 };
 type Brand = { name: string; useCount: number };
 
+type Reveals = {
+  address: boolean;
+  phone: boolean;
+  ref: boolean;
+  year: boolean;
+  serial: boolean;
+  confirmation: boolean;
+  notes: boolean;
+};
+
+const initialReveals: Reveals = {
+  address: false,
+  phone: false,
+  ref: false,
+  year: false,
+  serial: false,
+  confirmation: false,
+  notes: false,
+};
+
 export default function NewReceiptPage() {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [recentWatches, setRecentWatches] = useState<RecentWatch[]>([]);
   const [recentCustomers, setRecentCustomers] = useState<RecentCustomer[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAddress, setShowAddress] = useState(false);
-  const [showMore, setShowMore] = useState(false);
+  const [reveals, setReveals] = useState<Reveals>(initialReveals);
 
   useEffect(() => {
     const saved = loadForm();
     if (saved) {
       setForm(saved);
-      if (saved.customer.addressLines || saved.customer.street) setShowAddress(true);
+      setReveals({
+        address: !!saved.customer.addressLines || !!saved.customer.street,
+        phone: !!saved.customer.phone,
+        ref: !!saved.watch.referenceNumber,
+        year: !!saved.watch.year,
+        serial: !!saved.watch.serial,
+        confirmation: !!saved.payment.confirmation,
+        notes: !!saved.notes,
+      });
     }
     setHydrated(true);
   }, []);
@@ -67,7 +92,6 @@ export default function NewReceiptPage() {
       setBanks(b);
       setSellers(s);
       setBrands(br);
-      setRecentWatches(recent.watches ?? []);
       setRecentCustomers(recent.customers ?? []);
       setForm((f) =>
         !f.payment.bankAccountId && b.length
@@ -105,6 +129,9 @@ export default function NewReceiptPage() {
   function patch<K extends keyof FormState>(key: K, value: Partial<FormState[K]>) {
     setForm((f) => ({ ...f, [key]: { ...(f[key] as object), ...value } }));
   }
+  function reveal(key: keyof Reveals) {
+    setReveals((r) => ({ ...r, [key]: true }));
+  }
 
   const zelleBank = useMemo(() => banks.find((b) => b.acceptsZelle), [banks]);
   const wireBank = useMemo(
@@ -122,10 +149,7 @@ export default function NewReceiptPage() {
           : m === "Wire"
             ? wireBank?.id ?? f.payment.bankAccountId
             : f.payment.bankAccountId;
-      return {
-        ...f,
-        payment: { ...f.payment, method: m, bankAccountId: nextBankId },
-      };
+      return { ...f, payment: { ...f.payment, method: m, bankAccountId: nextBankId } };
     });
   }
 
@@ -144,7 +168,7 @@ export default function NewReceiptPage() {
       state: c.state ?? "",
       zip: c.zip ?? "",
     });
-    if (addr) setShowAddress(true);
+    if (addr) setReveals((r) => ({ ...r, address: true }));
   }
 
   function selectSeller(name: string) {
@@ -170,7 +194,7 @@ export default function NewReceiptPage() {
       const res = await fetch("/api/receipts", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ form: collapseAddress(form) }),
+        body: JSON.stringify({ form: prepareForSubmit(form) }),
       });
       if (!res.ok) throw new Error((await res.text()) || "Failed to create receipt");
       const created = await res.json();
@@ -186,14 +210,13 @@ export default function NewReceiptPage() {
     <div className="min-h-full pb-32">
       <TopNav active="new" />
       <main className="max-w-2xl mx-auto px-4 pt-8">
-        <h1 className="text-3xl font-bold tracking-tight text-ink">
-          What did you sell?
-        </h1>
+        <h1 className="text-3xl font-bold tracking-tight text-ink">What did you sell?</h1>
         <p className="text-base text-muted mt-1.5">
           Fill in four things. Voice support coming next.
         </p>
 
         <div className="mt-7 bg-white border border-divider rounded-2xl divide-y divide-divider">
+          {/* 1 — Customer */}
           <Step n={1} title="Customer" done={step1Done}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
               <LineInput
@@ -222,24 +245,34 @@ export default function NewReceiptPage() {
                 ))}
               </ChipRow>
             ) : null}
-            {showAddress ? (
+            {reveals.address ? (
               <Textarea
                 rows={3}
                 placeholder={"123 Main St\nBrooklyn, NY 11201"}
                 value={form.customer.addressLines}
                 onChange={(e) => patch("customer", { addressLines: e.target.value })}
               />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowAddress(true)}
-                className="self-start text-sm text-accent hover:text-accent-deep"
-              >
-                + Add shipping address
-              </button>
-            )}
+            ) : null}
+            {reveals.phone ? (
+              <LineInput
+                type="tel"
+                inputMode="tel"
+                placeholder="Phone"
+                value={form.customer.phone}
+                onChange={(e) => patch("customer", { phone: e.target.value })}
+              />
+            ) : null}
+            <RevealRow>
+              {!reveals.address && (
+                <RevealChip onClick={() => reveal("address")}>Address</RevealChip>
+              )}
+              {!reveals.phone && (
+                <RevealChip onClick={() => reveal("phone")}>Phone</RevealChip>
+              )}
+            </RevealRow>
           </Step>
 
+          {/* 2 — Watch */}
           <Step n={2} title="Watch" done={step2Done}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
               <LineInput
@@ -249,7 +282,7 @@ export default function NewReceiptPage() {
                 onChange={(e) => patch("watch", { brand: e.target.value })}
               />
               <LineInput
-                placeholder="Model + ref. #"
+                placeholder="Model"
                 value={form.watch.model}
                 onChange={(e) => patch("watch", { model: e.target.value })}
               />
@@ -278,19 +311,57 @@ export default function NewReceiptPage() {
                 ariaLabel="Condition"
               />
             </div>
+            {reveals.ref ? (
+              <LineInput
+                placeholder="Reference #"
+                value={form.watch.referenceNumber}
+                onChange={(e) => patch("watch", { referenceNumber: e.target.value })}
+              />
+            ) : null}
+            {reveals.year ? (
+              <LineInput
+                inputMode="numeric"
+                placeholder="Year"
+                value={form.watch.year}
+                onChange={(e) => patch("watch", { year: e.target.value })}
+              />
+            ) : null}
+            {reveals.serial ? (
+              <LineInput
+                placeholder="Serial"
+                value={form.watch.serial}
+                onChange={(e) => patch("watch", { serial: e.target.value })}
+              />
+            ) : null}
+            <RevealRow>
+              {!reveals.ref && <RevealChip onClick={() => reveal("ref")}>Reference #</RevealChip>}
+              {!reveals.year && <RevealChip onClick={() => reveal("year")}>Year</RevealChip>}
+              {!reveals.serial && <RevealChip onClick={() => reveal("serial")}>Serial</RevealChip>}
+            </RevealRow>
           </Step>
 
+          {/* 3 — Amount paid + date */}
           <Step n={3} title="Amount paid" done={step3Done}>
-            <LineInput
-              prefix="$"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={form.payment.amountUsd}
-              onChange={(e) => patch("payment", { amountUsd: e.target.value })}
-              className="text-xl"
-            />
+            <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+              <LineInput
+                prefix="$"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={form.payment.amountUsd}
+                onChange={(e) => patch("payment", { amountUsd: e.target.value })}
+                className="text-xl"
+              />
+              <input
+                type="date"
+                value={form.payment.date}
+                onChange={(e) => patch("payment", { date: e.target.value })}
+                className="bg-transparent border-b border-divider text-sm text-muted py-2 outline-none focus:border-accent"
+                aria-label="Date received"
+              />
+            </div>
           </Step>
 
+          {/* 4 — Method */}
           <Step n={4} title="How they paid" done={step4Done}>
             <PillToggle
               value={form.payment.method}
@@ -316,8 +387,19 @@ export default function NewReceiptPage() {
                 />
               </div>
             ) : null}
+            {reveals.confirmation ? (
+              <LineInput
+                placeholder="Confirmation #"
+                value={form.payment.confirmation}
+                onChange={(e) => patch("payment", { confirmation: e.target.value })}
+              />
+            ) : null}
+            <RevealRow>
+              {!reveals.confirmation && (
+                <RevealChip onClick={() => reveal("confirmation")}>Confirmation #</RevealChip>
+              )}
+            </RevealRow>
           </Step>
-
         </div>
 
         {sellers.length > 0 ? (
@@ -363,95 +445,37 @@ export default function NewReceiptPage() {
           </div>
         ) : null}
 
-        <div className="mt-6">
-          <button
-            type="button"
-            onClick={() => setShowMore((v) => !v)}
-            className="text-sm text-accent hover:text-accent-deep"
-          >
-            {showMore ? "− Hide optional fields" : "+ Optional fields"}
-          </button>
-          {!showMore ? (
-            <p className="text-xs text-muted mt-1">
-              Date, confirmation #, ref #, year, shipping, tax, notes — only if you need them. Defaults handle the rest.
-            </p>
-          ) : null}
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
+          <SmallNumberField
+            label="Shipping"
+            prefix="$"
+            placeholder="29"
+            value={form.totals.shippingUsd}
+            onChange={(v) => patch("totals", { shippingUsd: v })}
+          />
+          <SmallNumberField
+            label="Tax"
+            prefix="$"
+            placeholder="0"
+            value={form.totals.taxUsd}
+            onChange={(v) => patch("totals", { taxUsd: v })}
+          />
         </div>
 
-        {showMore ? (
-          <div className="mt-4 flex flex-col gap-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
-              <Field
-                label="Sender"
-                placeholder={form.customer.name || "Auto: customer name"}
-                value={form.payment.sender}
-                onChange={(e) => patch("payment", { sender: e.target.value })}
-              />
-              <Field
-                label="Date received"
-                type="date"
-                value={form.payment.date}
-                onChange={(e) => patch("payment", { date: e.target.value })}
-              />
-              <Field
-                label="Confirmation #"
-                placeholder="BAC1234567"
-                value={form.payment.confirmation}
-                onChange={(e) => patch("payment", { confirmation: e.target.value })}
-              />
-              <Field
-                label="Phone"
-                type="tel"
-                inputMode="tel"
-                placeholder="Optional"
-                value={form.customer.phone}
-                onChange={(e) => patch("customer", { phone: e.target.value })}
-              />
-              <Field
-                label="Reference #"
-                placeholder="126610LN"
-                value={form.watch.referenceNumber}
-                onChange={(e) => patch("watch", { referenceNumber: e.target.value })}
-              />
-              <Field
-                label="Year"
-                inputMode="numeric"
-                placeholder="2024"
-                value={form.watch.year}
-                onChange={(e) => patch("watch", { year: e.target.value })}
-              />
-              <Field
-                label="Serial"
-                placeholder="Optional"
-                value={form.watch.serial}
-                onChange={(e) => patch("watch", { serial: e.target.value })}
-              />
-              <Field
-                label="Shipping"
-                prefix="$"
-                inputMode="decimal"
-                placeholder="29.00"
-                value={form.totals.shippingUsd}
-                onChange={(e) => patch("totals", { shippingUsd: e.target.value })}
-              />
-              <Field
-                label="Tax"
-                prefix="$"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={form.totals.taxUsd}
-                onChange={(e) => patch("totals", { taxUsd: e.target.value })}
-              />
-            </div>
+        {reveals.notes ? (
+          <div className="mt-4">
             <Textarea
-              label="Internal notes"
               rows={2}
-              placeholder="Stays private — not on the receipt"
+              placeholder="Internal notes (stays private — not on the receipt)"
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             />
           </div>
-        ) : null}
+        ) : (
+          <div className="mt-4">
+            <RevealChip onClick={() => reveal("notes")}>Internal notes</RevealChip>
+          </div>
+        )}
 
         <MicPlaceholder />
 
@@ -482,6 +506,17 @@ export default function NewReceiptPage() {
       </div>
     </div>
   );
+}
+
+function prepareForSubmit(form: FormState): FormState {
+  const next = { ...form };
+  if (form.customer.addressLines && !form.customer.street) {
+    next.customer = { ...next.customer, street: form.customer.addressLines };
+  }
+  if (!form.payment.sender && form.customer.name) {
+    next.payment = { ...next.payment, sender: form.customer.name };
+  }
+  return next;
 }
 
 function Step({
@@ -548,6 +583,22 @@ function Chip({
   );
 }
 
+function RevealRow({ children }: { children: ReactNode }) {
+  return <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">{children}</div>;
+}
+
+function RevealChip({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-sm text-accent hover:text-accent-deep transition-colors"
+    >
+      + {children}
+    </button>
+  );
+}
+
 function CheckRow({
   label,
   checked,
@@ -570,12 +621,33 @@ function CheckRow({
   );
 }
 
-function FieldGroup({ title, children }: { title: string; children: ReactNode }) {
+function SmallNumberField({
+  label,
+  prefix,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  prefix?: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="text-sm text-muted font-medium">{title}</div>
-      {children}
-    </div>
+    <label className="flex items-center gap-2 text-muted">
+      {label}
+      <div className="flex items-center gap-1 bg-white border border-divider rounded-md px-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-soft transition-colors">
+        {prefix ? <span className="text-muted-soft text-sm">{prefix}</span> : null}
+        <input
+          inputMode="decimal"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-16 bg-transparent py-1.5 text-sm text-ink outline-none nums"
+        />
+      </div>
+    </label>
   );
 }
 
@@ -593,14 +665,4 @@ function MicPlaceholder() {
       </div>
     </div>
   );
-}
-
-function collapseAddress(form: FormState): FormState {
-  if (form.customer.addressLines && !form.customer.street) {
-    return {
-      ...form,
-      customer: { ...form.customer, street: form.customer.addressLines },
-    };
-  }
-  return form;
 }
