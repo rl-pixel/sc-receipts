@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
     "@neondatabase/serverless",
     "@react-pdf/renderer",
   ],
+  outputFileTracingIncludes: {
+    "/api/receipts/[id]/pdf": ["./public/fonts/**/*"],
+  },
 };
 
 export default nextConfig;
