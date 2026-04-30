@@ -116,15 +116,15 @@ export default function NewReceiptPage() {
     [form.seller.commissionType, form.seller.commissionValue, totalCents],
   );
 
-  const step1Done =
+  const customerDone =
     form.customer.email.trim().length > 3 && form.customer.name.trim().length > 0;
-  const step2Done =
+  const watchDone =
     form.watch.brand.trim().length > 0 && form.watch.model.trim().length > 0;
-  const step3Done = subtotalCents > 0;
-  const step4Done =
+  const amountDone = subtotalCents > 0;
+  const methodDone =
     !!form.payment.method &&
     (form.payment.method !== "Other" || !!form.payment.bankAccountId);
-  const allDone = step1Done && step2Done && step3Done && step4Done;
+  const allDone = customerDone && watchDone && amountDone && methodDone;
 
   function patch<K extends keyof FormState>(key: K, value: Partial<FormState[K]>) {
     setForm((f) => ({ ...f, [key]: { ...(f[key] as object), ...value } }));
@@ -210,15 +210,14 @@ export default function NewReceiptPage() {
     <div className="min-h-full pb-32">
       <TopNav active="new" />
       <main className="max-w-2xl mx-auto px-4 pt-8">
-        <h1 className="text-3xl font-bold tracking-tight text-ink">What did you sell?</h1>
-        <p className="text-base text-muted mt-1.5">
-          Fill in four things. Voice support coming next.
+        <h1 className="text-3xl font-bold tracking-tight text-ink">New receipt</h1>
+        <p className="text-sm text-muted mt-1">
+          Fill these four. Voice input coming soon.
         </p>
 
-        <div className="mt-7 bg-white border border-divider rounded-2xl divide-y divide-divider">
-          {/* 1 — Customer */}
-          <Step n={1} title="Customer" done={step1Done}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+        <div className="mt-7 card-lift divide-y divide-divider">
+          <Sec title="Customer" done={customerDone}>
+            <Row2>
               <LineInput
                 placeholder="Name"
                 value={form.customer.name}
@@ -231,8 +230,8 @@ export default function NewReceiptPage() {
                 value={form.customer.email}
                 onChange={(e) => patch("customer", { email: e.target.value })}
               />
-            </div>
-            {recentCustomers.length > 0 && !step1Done ? (
+            </Row2>
+            {recentCustomers.length > 0 && !customerDone ? (
               <ChipRow>
                 {recentCustomers.map((c) => (
                   <Chip
@@ -270,11 +269,10 @@ export default function NewReceiptPage() {
                 <RevealChip onClick={() => reveal("phone")}>Phone</RevealChip>
               )}
             </RevealRow>
-          </Step>
+          </Sec>
 
-          {/* 2 — Watch */}
-          <Step n={2} title="Watch" done={step2Done}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+          <Sec title="Watch" done={watchDone}>
+            <Row2>
               <LineInput
                 placeholder="Brand"
                 list="brand-suggestions"
@@ -286,7 +284,7 @@ export default function NewReceiptPage() {
                 value={form.watch.model}
                 onChange={(e) => patch("watch", { model: e.target.value })}
               />
-            </div>
+            </Row2>
             <datalist id="brand-suggestions">
               {brands.map((b) => (
                 <option key={b.name} value={b.name} />
@@ -341,31 +339,29 @@ export default function NewReceiptPage() {
               {!reveals.year && <RevealChip onClick={() => reveal("year")}>Year</RevealChip>}
               {!reveals.serial && <RevealChip onClick={() => reveal("serial")}>Serial</RevealChip>}
             </RevealRow>
-          </Step>
+          </Sec>
 
-          {/* 3 — Amount paid + date */}
-          <Step n={3} title="Amount paid" done={step3Done}>
-            <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+          <Sec title="Amount paid" done={amountDone}>
+            <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
               <LineInput
                 prefix="$"
                 inputMode="decimal"
                 placeholder="0.00"
                 value={form.payment.amountUsd}
                 onChange={(e) => patch("payment", { amountUsd: e.target.value })}
-                className="text-xl"
+                className="text-2xl"
               />
               <input
                 type="date"
                 value={form.payment.date}
                 onChange={(e) => patch("payment", { date: e.target.value })}
-                className="bg-transparent border-b border-divider text-sm text-muted py-2 outline-none focus:border-accent"
+                className="bg-transparent border-b border-divider text-sm text-muted py-2 outline-none focus:border-accent nums"
                 aria-label="Date received"
               />
             </div>
-          </Step>
+          </Sec>
 
-          {/* 4 — Method */}
-          <Step n={4} title="How they paid" done={step4Done}>
+          <Sec title="How they paid" done={methodDone}>
             <PillToggle
               value={form.payment.method}
               options={PAYMENT_METHODS.map((m) => ({ value: m, label: m }))}
@@ -402,85 +398,83 @@ export default function NewReceiptPage() {
                 <RevealChip onClick={() => reveal("confirmation")}>Confirmation #</RevealChip>
               )}
             </RevealRow>
-          </Step>
-        </div>
+          </Sec>
 
-        {sellers.length > 0 ? (
-          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
-            <span className="text-muted">Sold by</span>
-            <PillToggle
-              value={form.seller.soldBy}
-              options={sellers.map((s) => ({ value: s.name, label: s.name }))}
-              onChange={selectSeller}
-              size="sm"
-              ariaLabel="Sold by"
-            />
-            <PillToggle
-              value={form.seller.commissionType ?? "none"}
-              options={[
-                { value: "none", label: "No commission" },
-                { value: "percent", label: "%" },
-                { value: "flat", label: "$" },
-              ]}
-              onChange={(v) =>
-                patch("seller", {
-                  commissionType: v === "none" ? null : (v as "percent" | "flat"),
-                  commissionValue: v === "none" ? "" : form.seller.commissionValue,
-                })
-              }
-              size="sm"
-              ariaLabel="Commission type"
-            />
-            {form.seller.commissionType ? (
-              <input
-                inputMode="decimal"
-                placeholder={form.seller.commissionType === "percent" ? "10" : "200"}
-                value={form.seller.commissionValue}
-                onChange={(e) => patch("seller", { commissionValue: e.target.value })}
-                className="w-20 bg-white border border-divider rounded-md px-2 py-1.5 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
+          <Sec title="Sold by">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              {sellers.length > 0 ? (
+                <PillToggle
+                  value={form.seller.soldBy}
+                  options={sellers.map((s) => ({ value: s.name, label: s.name }))}
+                  onChange={selectSeller}
+                  size="sm"
+                  ariaLabel="Sold by"
+                />
+              ) : null}
+              <PillToggle
+                value={form.seller.commissionType ?? "none"}
+                options={[
+                  { value: "none", label: "No commission" },
+                  { value: "percent", label: "%" },
+                  { value: "flat", label: "$" },
+                ]}
+                onChange={(v) =>
+                  patch("seller", {
+                    commissionType: v === "none" ? null : (v as "percent" | "flat"),
+                    commissionValue: v === "none" ? "" : form.seller.commissionValue,
+                  })
+                }
+                size="sm"
+                ariaLabel="Commission type"
               />
-            ) : null}
-            {commissionAmountCents != null && commissionAmountCents > 0 ? (
-              <span className="text-xs text-success nums">
-                = {formatUSD(commissionAmountCents)}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
+              {form.seller.commissionType ? (
+                <input
+                  inputMode="decimal"
+                  placeholder={form.seller.commissionType === "percent" ? "10" : "200"}
+                  value={form.seller.commissionValue}
+                  onChange={(e) => patch("seller", { commissionValue: e.target.value })}
+                  className="w-20 bg-white border border-divider rounded-md px-2 py-1.5 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
+                />
+              ) : null}
+              {commissionAmountCents != null && commissionAmountCents > 0 ? (
+                <span className="text-xs text-success nums">
+                  = {formatUSD(commissionAmountCents)}
+                </span>
+              ) : null}
+            </div>
+          </Sec>
 
-        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
-          <SmallNumberField
-            label="Shipping"
-            prefix="$"
-            placeholder="29"
-            value={form.totals.shippingUsd}
-            onChange={(v) => patch("totals", { shippingUsd: v })}
-          />
-          <SmallNumberField
-            label="Tax"
-            prefix="$"
-            placeholder="0"
-            value={form.totals.taxUsd}
-            onChange={(v) => patch("totals", { taxUsd: v })}
-          />
+          <Sec title="Receipt totals">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+              <SmallNumberField
+                label="Shipping"
+                prefix="$"
+                placeholder="29"
+                value={form.totals.shippingUsd}
+                onChange={(v) => patch("totals", { shippingUsd: v })}
+              />
+              <SmallNumberField
+                label="Tax"
+                prefix="$"
+                placeholder="0"
+                value={form.totals.taxUsd}
+                onChange={(v) => patch("totals", { taxUsd: v })}
+              />
+            </div>
+            {reveals.notes ? (
+              <Textarea
+                rows={2}
+                placeholder="Internal notes (private — not on receipt)"
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            ) : (
+              <RevealRow>
+                <RevealChip onClick={() => reveal("notes")}>Internal notes</RevealChip>
+              </RevealRow>
+            )}
+          </Sec>
         </div>
-
-        {reveals.notes ? (
-          <div className="mt-4">
-            <Textarea
-              rows={2}
-              placeholder="Internal notes (stays private — not on the receipt)"
-              value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            />
-          </div>
-        ) : (
-          <div className="mt-4">
-            <RevealChip onClick={() => reveal("notes")}>Internal notes</RevealChip>
-          </div>
-        )}
-
-        <MicPlaceholder />
 
         {error ? (
           <div className="mt-5 p-4 rounded-lg bg-white border border-warn/40 text-warn text-sm">
@@ -522,36 +516,28 @@ function prepareForSubmit(form: FormState): FormState {
   return next;
 }
 
-function Step({
-  n,
+function Sec({
   title,
   done,
   children,
 }: {
-  n: number;
   title: string;
-  done: boolean;
+  done?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="flex gap-3.5 px-5 py-5">
-      <div className="shrink-0 pt-0.5">
-        {done ? (
-          <div className="w-6 h-6 rounded-full bg-success text-white flex items-center justify-center text-sm">
-            ✓
-          </div>
-        ) : (
-          <div className="w-6 h-6 rounded-full border border-divider text-muted flex items-center justify-center text-sm font-medium">
-            {n}
-          </div>
-        )}
+    <section className="px-5 py-5 sm:px-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-base font-semibold text-ink">{title}</h3>
+        {done ? <span className="text-success text-base">✓</span> : null}
       </div>
-      <div className="flex-1 flex flex-col gap-3 min-w-0">
-        <div className="text-base text-ink font-medium">{title}</div>
-        {children}
-      </div>
-    </div>
+      <div className="flex flex-col gap-3">{children}</div>
+    </section>
   );
+}
+
+function Row2({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">{children}</div>;
 }
 
 function ChipRow({ children }: { children: ReactNode }) {
@@ -587,7 +573,7 @@ function Chip({
 }
 
 function RevealRow({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">{children}</div>;
+  return <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">{children}</div>;
 }
 
 function RevealChip({ children, onClick }: { children: ReactNode; onClick: () => void }) {
@@ -638,7 +624,7 @@ function SmallNumberField({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 text-muted">
+    <label className="flex items-center gap-2 text-sm text-muted">
       {label}
       <div className="flex items-center gap-1 bg-white border border-divider rounded-md px-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-soft transition-colors">
         {prefix ? <span className="text-muted-soft text-sm">{prefix}</span> : null}
@@ -651,21 +637,5 @@ function SmallNumberField({
         />
       </div>
     </label>
-  );
-}
-
-function MicPlaceholder() {
-  return (
-    <div className="mt-6 bg-white border border-dashed border-divider rounded-2xl px-5 py-6 flex items-center gap-4">
-      <div className="w-12 h-12 rounded-full bg-divider-soft flex items-center justify-center text-2xl">
-        🎤
-      </div>
-      <div className="flex-1">
-        <div className="text-base text-ink font-medium">Hold to speak</div>
-        <div className="text-sm text-muted">
-          Say one sentence and the form fills itself. Wires up next.
-        </div>
-      </div>
-    </div>
   );
 }
