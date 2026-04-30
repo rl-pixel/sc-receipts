@@ -17,10 +17,17 @@ export default async function ReceiptDetailPage({
   const sp = await searchParams;
   const justCreated = sp.just_created === "1";
 
-  const receipt = await db.receipt.findUnique({
-    where: { id },
-    include: { customer: true, bankAccount: true },
-  });
+  let receipt: Awaited<
+    ReturnType<typeof db.receipt.findUnique<{ include: { customer: true; bankAccount: true } }>>
+  > = null;
+  try {
+    receipt = await db.receipt.findUnique({
+      where: { id },
+      include: { customer: true, bankAccount: true },
+    });
+  } catch {
+    notFound();
+  }
   if (!receipt) notFound();
 
   const pdfUrl = `/api/receipts/${receipt.id}/pdf`;

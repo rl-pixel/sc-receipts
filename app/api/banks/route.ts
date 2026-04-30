@@ -4,11 +4,15 @@ import { db } from "@/lib/db";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const banks = await db.bankAccount.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: "asc" },
-  });
-  return NextResponse.json(banks);
+  try {
+    const banks = await db.bankAccount.findMany({
+      where: { active: true },
+      orderBy: { sortOrder: "asc" },
+    });
+    return NextResponse.json(banks);
+  } catch {
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(request: Request) {

@@ -109,10 +109,19 @@ export default function NewReceiptPage() {
   }, [form.customer.name, form.customer.email]);
 
   useEffect(() => {
+    const fetchSafe = async <T,>(url: string, fallback: T): Promise<T> => {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) return fallback;
+        return (await r.json()) as T;
+      } catch {
+        return fallback;
+      }
+    };
     void Promise.all([
-      fetch("/api/banks").then((r) => r.json()),
-      fetch("/api/sellers").then((r) => r.json()),
-      fetch("/api/brands").then((r) => r.json()),
+      fetchSafe<Bank[]>("/api/banks", []),
+      fetchSafe<Seller[]>("/api/sellers", []),
+      fetchSafe<Brand[]>("/api/brands", []),
     ]).then(([b, s, br]) => {
       setBanks(b);
       setSellers(s);

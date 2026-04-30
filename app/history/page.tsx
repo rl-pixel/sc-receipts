@@ -38,19 +38,29 @@ export default async function HistoryPage({
     where.createdAt = { gte: new Date(now.getFullYear(), now.getMonth(), 1) };
   }
 
-  const [receipts, allCommissionRows, allPayouts] = await Promise.all([
-    db.receipt.findMany({
-      where,
-      include: { customer: true, bankAccount: true },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
-    db.receipt.findMany({
-      where: { commissionAmountCents: { not: null, gt: 0 } },
-      select: { soldBy: true, commissionAmountCents: true },
-    }),
-    db.payout.findMany({ include: { seller: true } }),
-  ]);
+  let receipts: Awaited<
+    ReturnType<typeof db.receipt.findMany<{ include: { customer: true; bankAccount: true } }>>
+  > = [];
+  let allCommissionRows: { soldBy: string; commissionAmountCents: number | null }[] = [];
+  let allPayouts: Awaited<ReturnType<typeof db.payout.findMany<{ include: { seller: true } }>>> = [];
+  let dbError = false;
+  try {
+    [receipts, allCommissionRows, allPayouts] = await Promise.all([
+      db.receipt.findMany({
+        where,
+        include: { customer: true, bankAccount: true },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      }),
+      db.receipt.findMany({
+        where: { commissionAmountCents: { not: null, gt: 0 } },
+        select: { soldBy: true, commissionAmountCents: true },
+      }),
+      db.payout.findMany({ include: { seller: true } }),
+    ]);
+  } catch {
+    dbError = true;
+  }
 
   const totalSales = receipts.reduce((sum, r) => sum + r.totalCents, 0);
 
@@ -75,6 +85,13 @@ export default async function HistoryPage({
       <TopNav active="history" />
       <main className="max-w-3xl mx-auto px-4 pt-6">
         <h1 className="text-3xl font-bold tracking-tight text-ink">History</h1>
+
+        {dbError ? (
+          <div className="mt-5 card-lift p-4 text-sm text-warn">
+            Couldn't reach the database. Check that <code className="font-mono">DATABASE_URL</code>{" "}
+            is set in <code className="font-mono">.env</code> (locally) or in Vercel env vars (production).
+          </div>
+        ) : null}
 
         <div className="mt-6 flex flex-col gap-4">
           <form action="/history" method="get" className="flex gap-2">

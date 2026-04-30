@@ -8,14 +8,22 @@ import { PayoutForm, PayoutDeleteButton } from "./Client";
 export const dynamic = "force-dynamic";
 
 export default async function PayoutsPage() {
-  const [sellers, receipts, payouts] = await Promise.all([
-    db.seller.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-    db.receipt.findMany({
-      where: { commissionAmountCents: { not: null, gt: 0 } },
-      select: { soldBy: true, commissionAmountCents: true },
-    }),
-    db.payout.findMany({ include: { seller: true }, orderBy: { paidAt: "desc" } }),
-  ]);
+  let sellers: Awaited<ReturnType<typeof db.seller.findMany>> = [];
+  let receipts: { soldBy: string; commissionAmountCents: number | null }[] = [];
+  let payouts: Awaited<ReturnType<typeof db.payout.findMany<{ include: { seller: true } }>>> = [];
+  let dbError = false;
+  try {
+    [sellers, receipts, payouts] = await Promise.all([
+      db.seller.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+      db.receipt.findMany({
+        where: { commissionAmountCents: { not: null, gt: 0 } },
+        select: { soldBy: true, commissionAmountCents: true },
+      }),
+      db.payout.findMany({ include: { seller: true }, orderBy: { paidAt: "desc" } }),
+    ]);
+  } catch {
+    dbError = true;
+  }
 
   const earnedBySeller = receipts.reduce<Record<string, number>>((acc, r) => {
     if (r.commissionAmountCents) {
@@ -41,6 +49,13 @@ export default async function PayoutsPage() {
         <p className="text-sm text-muted mt-1">
           Track what you've paid Jacob (and anyone else who sold).
         </p>
+
+        {dbError ? (
+          <div className="mt-5 card-lift p-4 text-sm text-warn">
+            Couldn't reach the database. Check that <code className="font-mono">DATABASE_URL</code>{" "}
+            is set in <code className="font-mono">.env</code> (locally) or in Vercel env vars (production).
+          </div>
+        ) : null}
 
         {sellerNames.length === 0 ? (
           <div className="mt-6 card-lift p-6 text-sm text-muted">
