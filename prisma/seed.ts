@@ -21,12 +21,27 @@ async function main() {
     await db.seller.upsert({ where: { name: s.name }, update: {}, create: s });
   }
 
+  // Migrate any existing seeded labels from old generic names
+  await db.bankAccount.updateMany({
+    where: { label: "Primary (Zelle)" },
+    data: { label: "Zelle account", acceptsZelle: true, acceptsWire: false },
+  });
+  await db.bankAccount.updateMany({
+    where: { label: "Wire Only" },
+    data: { label: "Mercury", acceptsZelle: false, acceptsWire: true },
+  });
+
   if ((await db.bankAccount.count()) === 0) {
     await db.bankAccount.create({
-      data: { label: "Primary (Zelle)", acceptsZelle: true, acceptsWire: true, sortOrder: 0 },
+      data: { label: "Mercury", acceptsZelle: false, acceptsWire: true, sortOrder: 0 },
     });
     await db.bankAccount.create({
-      data: { label: "Wire Only", acceptsZelle: false, acceptsWire: true, sortOrder: 1 },
+      data: {
+        label: "Zelle account",
+        acceptsZelle: true,
+        acceptsWire: false,
+        sortOrder: 1,
+      },
     });
   }
 

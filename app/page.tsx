@@ -21,7 +21,7 @@ import {
 import { dollarsToCents, formatUSD } from "@/lib/money";
 import { resolveCommissionCents } from "@/lib/commission";
 
-type Bank = { id: string; label: string };
+type Bank = { id: string; label: string; acceptsZelle: boolean; acceptsWire: boolean };
 type Seller = {
   id: string;
   name: string;
@@ -105,16 +105,30 @@ export default function NewReceiptPage() {
     setForm((f) => ({ ...f, [key]: { ...(f[key] as object), ...value } }));
   }
 
-  function applyWatchCard(w: RecentWatch) {
-    patch("watch", {
-      brand: w.brand,
-      model: w.model,
-      referenceNumber: w.referenceNumber ?? "",
-      year: w.year != null ? String(w.year) : "",
-      hasBox: w.hasBox,
-      hasPapers: w.hasPapers,
+  const zelleBank = useMemo(() => banks.find((b) => b.acceptsZelle), [banks]);
+  const wireBank = useMemo(
+    () =>
+      banks.find((b) => b.acceptsWire && !b.acceptsZelle) ??
+      banks.find((b) => b.acceptsWire),
+    [banks],
+  );
+
+  function selectMethod(m: "Zelle" | "Wire" | "Other") {
+    setForm((f) => {
+      const nextBankId =
+        m === "Zelle"
+          ? zelleBank?.id ?? f.payment.bankAccountId
+          : m === "Wire"
+            ? wireBank?.id ?? f.payment.bankAccountId
+            : f.payment.bankAccountId;
+      return {
+        ...f,
+        payment: { ...f.payment, method: m, bankAccountId: nextBankId },
+      };
     });
   }
+
+  const linkedBank = banks.find((b) => b.id === form.payment.bankAccountId);
 
   function applyCustomerChip(c: RecentCustomer) {
     const addr = [c.street, [c.city, c.state].filter(Boolean).join(", "), c.zip]
@@ -244,23 +258,6 @@ export default function NewReceiptPage() {
                 <option key={b.name} value={b.name} />
               ))}
             </datalist>
-            {recentWatches.length > 0 && !step2Done ? (
-              <ChipRow>
-                {recentWatches.map((w, i) => {
-                  const selected =
-                    form.watch.brand === w.brand && form.watch.model === w.model;
-                  return (
-                    <Chip
-                      key={`${w.brand}-${w.model}-${i}`}
-                      onClick={() => applyWatchCard(w)}
-                      selected={selected}
-                    >
-                      {w.brand} {w.model}
-                    </Chip>
-                  );
-                })}
-              </ChipRow>
-            ) : null}
           </Step>
 
           <Step n={3} title="Amount paid" done={step3Done}>
@@ -278,10 +275,27 @@ export default function NewReceiptPage() {
             <PillToggle
               value={form.payment.method}
               options={PAYMENT_METHODS.map((m) => ({ value: m, label: m }))}
-              onChange={(m) => patch("payment", { method: m })}
+              onChange={selectMethod}
               size="sm"
               ariaLabel="Payment method"
             />
+            {form.payment.method !== "Other" && linkedBank ? (
+              <div className="text-sm text-muted">
+                Into <span className="text-ink">{linkedBank.label}</span>
+              </div>
+            ) : null}
+            {form.payment.method === "Other" && banks.length > 0 ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted">Into</span>
+                <PillToggle
+                  value={form.payment.bankAccountId}
+                  options={banks.map((b) => ({ value: b.id, label: b.label }))}
+                  onChange={(id) => patch("payment", { bankAccountId: id })}
+                  size="sm"
+                  ariaLabel="Bank account"
+                />
+              </div>
+            ) : null}
           </Step>
 
           <Step n={5} title="Box and papers" done={step5Done}>
@@ -300,8 +314,9 @@ export default function NewReceiptPage() {
           </Step>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
-          {sellers.length > 0 ? (
+        {sellers.length > 0 ? (
+          <div className="mt-5 flex items-center gap-3 text-sm">
+            <span className="text-muted">Sold by</span>
             <PillToggle
               value={form.seller.soldBy}
               options={sellers.map((s) => ({ value: s.name, label: s.name }))}
@@ -309,17 +324,8 @@ export default function NewReceiptPage() {
               size="sm"
               ariaLabel="Sold by"
             />
-          ) : null}
-          {banks.length > 0 ? (
-            <PillToggle
-              value={form.payment.bankAccountId}
-              options={banks.map((b) => ({ value: b.id, label: b.label }))}
-              onChange={(id) => patch("payment", { bankAccountId: id })}
-              size="sm"
-              ariaLabel="Bank account"
-            />
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <button
           type="button"
