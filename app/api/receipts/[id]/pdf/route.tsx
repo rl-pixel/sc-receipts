@@ -38,6 +38,10 @@ export async function GET(
     customer: {
       name: receipt.customer.name,
       email: receipt.customer.email,
+      addressLines:
+        receipt.customer.street && receipt.customer.street.includes("\n")
+          ? receipt.customer.street
+          : "",
       street: receipt.customer.street ?? "",
       city: receipt.customer.city ?? "",
       state: receipt.customer.state ?? "",

@@ -1,16 +1,8 @@
 export type Condition = "New" | "Like New" | "Excellent" | "Very Good" | "Good";
 export const CONDITIONS: Condition[] = ["New", "Like New", "Excellent", "Very Good", "Good"];
 
-export type PaymentMethod = "Zelle" | "Wire" | "Venmo" | "CashApp" | "PayPal" | "Check" | "Other";
-export const PAYMENT_METHODS: PaymentMethod[] = [
-  "Zelle",
-  "Wire",
-  "Venmo",
-  "CashApp",
-  "PayPal",
-  "Check",
-  "Other",
-];
+export type PaymentMethod = "Zelle" | "Wire" | "Other";
+export const PAYMENT_METHODS: PaymentMethod[] = ["Zelle", "Wire", "Other"];
 
 export type CommissionType = "percent" | "flat";
 
@@ -27,6 +19,7 @@ export type FormState = {
     name: string;
     email: string;
     phone: string;
+    addressLines: string;
     street: string;
     city: string;
     state: string;
@@ -66,6 +59,7 @@ export type ReceiptPdfData = {
   customer: {
     name: string;
     email: string;
+    addressLines: string;
     street: string;
     city: string;
     state: string;
@@ -92,4 +86,26 @@ export type ReceiptPdfData = {
     taxCents: number;
     totalCents: number;
   };
+};
+
+export type RecentWatch = {
+  brand: string;
+  model: string;
+  referenceNumber: string | null;
+  year: number | null;
+  condition: string;
+  hasBox: boolean;
+  hasPapers: boolean;
+  count: number;
+};
+
+export type RecentCustomer = {
+  id: string;
+  name: string;
+  email: string;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  lastSoldAt: string | null;
 };

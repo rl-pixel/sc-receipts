@@ -169,9 +169,11 @@ function formatUSD(cents: number): string {
 
 export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
   const { customer, watch, payment, totals, receiptNumber, issuedAt, business } = data;
-  const shipFull = [customer.street, [customer.city, customer.state].filter(Boolean).join(", "), customer.zip]
-    .filter(Boolean)
-    .join("\n");
+  const shipFull = customer.addressLines
+    ? customer.addressLines
+    : [customer.street, [customer.city, customer.state].filter(Boolean).join(", "), customer.zip]
+        .filter(Boolean)
+        .join("\n");
 
   return (
     <Document

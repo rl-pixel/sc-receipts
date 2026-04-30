@@ -1,6 +1,6 @@
 import type { FormState } from "./types";
 
-export const STORAGE_KEY = "studiochrono.form.v1";
+export const STORAGE_KEY = "studiochrono.form.v2";
 
 export function emptyForm(): FormState {
   const today = new Date();
@@ -20,6 +20,7 @@ export function emptyForm(): FormState {
       name: "",
       email: "",
       phone: "",
+      addressLines: "",
       street: "",
       city: "",
       state: "",
@@ -31,8 +32,8 @@ export function emptyForm(): FormState {
       referenceNumber: "",
       year: "",
       condition: "New",
-      hasBox: false,
-      hasPapers: false,
+      hasBox: true,
+      hasPapers: true,
       serial: "",
     },
     seller: {

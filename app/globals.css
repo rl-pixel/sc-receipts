@@ -1,17 +1,22 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Admin app — dark cosmic palette */
-  --color-bg: #000000;
-  --color-card: #0a0a0a;
-  --color-divider: #1f1f1f;
-  --color-ink: #ffffff;
-  --color-muted: #9a9a9a;
-  --color-accent: #e8e4d9;
-  --color-success: #7fd19a;
-  --color-warn: #e5b948;
+  /* Admin app — light Mercury-style with royal blue accents */
+  --color-bg: #ffffff;
+  --color-surface: #fafafa;
+  --color-card: #ffffff;
+  --color-divider: #e2e8f0;
+  --color-divider-soft: #f1f5f9;
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-muted-soft: #94a3b8;
+  --color-accent: #1d4ed8;
+  --color-accent-deep: #1e3a8a;
+  --color-accent-soft: #dbeafe;
+  --color-success: #16a34a;
+  --color-warn: #ea580c;
 
-  /* Customer receipt — white invoice palette */
+  /* Customer receipt — kept white, no royal blue accent */
   --color-paper: #ffffff;
   --color-paper-ink: #0a0a0a;
   --color-paper-muted: #6b6b6b;
@@ -19,7 +24,6 @@
   --color-paper-success-text: #0f7a3a;
   --color-paper-success-bg: #e8f5ee;
 
-  /* Fonts — wired up to next/font CSS variables */
   --font-sans: var(--font-inter);
   --font-display: var(--font-playfair);
   --font-mark: var(--font-dm-sans);
@@ -27,7 +31,7 @@
 
 html,
 body {
-  background: var(--color-bg);
+  background: var(--color-surface);
   color: var(--color-ink);
 }
 
@@ -35,16 +39,22 @@ body {
   font-feature-settings: "tnum" 1, "ss01" 1;
 }
 
-/* The Studio Chrono wordmark — DM Sans bold uppercase tracked out */
 .wordmark {
-  font-family: var(--font-mark), sans-serif;
+  font-family: var(--font-mark), system-ui, sans-serif;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.25em;
+  color: var(--color-ink);
 }
 
-/* Tabular numerals for prices/amounts */
 .nums {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+}
+
+/* Subtle focus ring for inputs */
+.focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  border-color: var(--color-accent);
 }

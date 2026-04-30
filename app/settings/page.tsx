@@ -148,7 +148,7 @@ function BankRow({ bank, onChange }: { bank: Bank; onChange: () => void }) {
       <div className="flex gap-2 mt-1">
         <button
           onClick={save}
-          className="bg-ink text-bg uppercase text-xs tracking-wider px-4 py-2 rounded-full"
+          className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2 rounded-full transition-colors"
         >
           Save
         </button>
@@ -223,7 +223,7 @@ function NewBank({ onCreated }: { onCreated: () => void }) {
       <div className="flex gap-2 mt-1">
         <button
           onClick={create}
-          className="bg-ink text-bg uppercase text-xs tracking-wider px-4 py-2 rounded-full"
+          className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2 rounded-full transition-colors"
         >
           Add
         </button>
@@ -315,7 +315,7 @@ function SellerRow({ seller, onChange }: { seller: Seller; onChange: () => void 
       <div className="flex gap-2 mt-1">
         <button
           onClick={save}
-          className="bg-ink text-bg uppercase text-xs tracking-wider px-4 py-2 rounded-full"
+          className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2 rounded-full transition-colors"
         >
           Save
         </button>
@@ -368,7 +368,7 @@ function NewSeller({ onCreated }: { onCreated: () => void }) {
       <div className="flex gap-2 mt-1">
         <button
           onClick={create}
-          className="bg-ink text-bg uppercase text-xs tracking-wider px-4 py-2 rounded-full"
+          className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2 rounded-full transition-colors"
         >
           Add
         </button>

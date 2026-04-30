@@ -20,14 +20,14 @@ export function PillToggle<T extends string>({
   ariaLabel,
 }: Props<T>) {
   const padY = size === "sm" ? "py-1.5" : "py-2.5";
-  const padX = size === "sm" ? "px-3" : "px-4";
+  const padX = size === "sm" ? "px-3.5" : "px-4";
   const text = size === "sm" ? "text-xs" : "text-sm";
 
   return (
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className="inline-flex gap-1 rounded-full bg-card p-1 border border-divider"
+      className="inline-flex gap-1 rounded-full bg-divider-soft p-1 border border-divider"
     >
       {options.map((opt) => {
         const selected = value === opt.value;
@@ -39,9 +39,9 @@ export function PillToggle<T extends string>({
             aria-checked={selected}
             disabled={opt.disabled}
             onClick={() => onChange(opt.value)}
-            className={`${padY} ${padX} ${text} rounded-full font-medium tracking-wide uppercase transition-colors disabled:opacity-40 ${
+            className={`${padY} ${padX} ${text} rounded-full font-medium tracking-wide transition-colors disabled:opacity-40 ${
               selected
-                ? "bg-ink text-bg"
+                ? "bg-white text-ink shadow-sm border border-divider"
                 : "text-muted hover:text-ink"
             }`}
           >

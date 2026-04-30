@@ -76,7 +76,7 @@ export default async function HistoryPage({
             {brand ? <input type="hidden" name="brand" value={brand} /> : null}
             <button
               type="submit"
-              className="bg-ink text-bg uppercase text-xs tracking-wider px-4 rounded-lg"
+              className="bg-accent text-white border-accent uppercase text-xs tracking-wider px-4 rounded-lg"
             >
               Search
             </button>
@@ -170,7 +170,7 @@ function RangeChip({
   return (
     <Link
       href={href}
-      className={`px-3 py-1 rounded-full ${active ? "bg-ink text-bg" : "bg-card border border-divider text-muted hover:text-ink"}`}
+      className={`px-3 py-1 rounded-full ${active ? "bg-accent text-white border-accent" : "bg-card border border-divider text-muted hover:text-ink"}`}
     >
       {label}
     </Link>
@@ -197,7 +197,7 @@ function BrandChip({
   return (
     <Link
       href={href}
-      className={`px-3 py-1 rounded-full ${active ? "bg-ink text-bg" : "bg-card border border-divider text-muted hover:text-ink"}`}
+      className={`px-3 py-1 rounded-full ${active ? "bg-accent text-white border-accent" : "bg-card border border-divider text-muted hover:text-ink"}`}
     >
       {value}
     </Link>

@@ -3,7 +3,7 @@ import { Wordmark } from "./Wordmark";
 
 export function TopNav({ active }: { active?: "new" | "history" | "settings" }) {
   return (
-    <header className="sticky top-0 z-20 bg-bg/80 backdrop-blur-md border-b border-divider">
+    <header className="sticky top-0 z-20 bg-bg/85 backdrop-blur-md border-b border-divider">
       <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="text-ink">
           <Wordmark size={13} />
@@ -23,7 +23,7 @@ function NavLink({ href, active, label }: { href: string; active?: boolean; labe
     <Link
       href={href}
       className={`px-3 py-1.5 rounded-full transition-colors ${
-        active ? "bg-card text-ink" : "text-muted hover:text-ink"
+        active ? "bg-divider-soft text-ink" : "text-muted hover:text-ink hover:bg-divider-soft"
       }`}
     >
       {label}

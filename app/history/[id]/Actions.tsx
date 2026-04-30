@@ -28,7 +28,7 @@ export function ReceiptDetailActions({ id, email, receiptNumber }: Props) {
       <a
         href={pdfUrl}
         download={filename}
-        className="bg-ink text-bg uppercase text-xs tracking-wider px-4 py-2.5 rounded-full"
+        className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2.5 rounded-full transition-colors"
       >
         Download PDF
       </a>
