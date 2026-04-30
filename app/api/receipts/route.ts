@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   );
 
   const paymentDate = form.payment.date ? new Date(form.payment.date) : new Date();
-  const receiptNumber = await generateReceiptNumber(paymentDate);
+  const receiptNumber = await generateReceiptNumber();
 
   const customer = await db.customer.upsert({
     where: { email: form.customer.email.toLowerCase() },

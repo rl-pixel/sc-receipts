@@ -1,18 +1,21 @@
+import { randomBytes } from "node:crypto";
 import { db } from "./db";
 
-export async function generateReceiptNumber(date: Date = new Date()): Promise<string> {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const dayPrefix = `SC-${yyyy}-${mm}${dd}-`;
+// Crockford-ish alphabet — no 0/O/1/I/L to avoid visual confusion.
+const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
-  const start = new Date(yyyy, date.getMonth(), date.getDate(), 0, 0, 0, 0);
-  const end = new Date(yyyy, date.getMonth(), date.getDate() + 1, 0, 0, 0, 0);
+function randomCode(len: number): string {
+  const bytes = randomBytes(len);
+  let out = "";
+  for (let i = 0; i < len; i++) out += ALPHABET[bytes[i] % ALPHABET.length];
+  return out;
+}
 
-  const count = await db.receipt.count({
-    where: { createdAt: { gte: start, lt: end } },
-  });
-
-  const seq = String(count + 1).padStart(3, "0");
-  return `${dayPrefix}${seq}`;
+export async function generateReceiptNumber(): Promise<string> {
+  for (let i = 0; i < 6; i++) {
+    const code = `SC-${randomCode(6)}`;
+    const existing = await db.receipt.findUnique({ where: { receiptNumber: code } });
+    if (!existing) return code;
+  }
+  throw new Error("Could not generate unique receipt number");
 }
