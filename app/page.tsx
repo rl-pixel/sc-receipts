@@ -55,7 +55,8 @@ export default function NewReceiptPage() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [recentCustomers, setRecentCustomers] = useState<RecentCustomer[]>([]);
+  const [customerMatches, setCustomerMatches] = useState<RecentCustomer[]>([]);
+  const [nameFocused, setNameFocused] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,17 +83,39 @@ export default function NewReceiptPage() {
     if (hydrated) saveForm(form);
   }, [form, hydrated]);
 
+  // Typeahead search: when the user types a name, look up matching past customers.
+  useEffect(() => {
+    const q = form.customer.name.trim();
+    if (q.length < 2) {
+      setCustomerMatches([]);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(q)}`);
+        if (!res.ok) return;
+        const data: RecentCustomer[] = await res.json();
+        // hide if the only match is exactly what's already filled in
+        const exact = data.length === 1 &&
+          data[0].name.toLowerCase() === q.toLowerCase() &&
+          data[0].email.toLowerCase() === form.customer.email.toLowerCase();
+        setCustomerMatches(exact ? [] : data);
+      } catch {
+        setCustomerMatches([]);
+      }
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [form.customer.name, form.customer.email]);
+
   useEffect(() => {
     void Promise.all([
       fetch("/api/banks").then((r) => r.json()),
       fetch("/api/sellers").then((r) => r.json()),
       fetch("/api/brands").then((r) => r.json()),
-      fetch("/api/recent").then((r) => r.json()),
-    ]).then(([b, s, br, recent]) => {
+    ]).then(([b, s, br]) => {
       setBanks(b);
       setSellers(s);
       setBrands(br);
-      setRecentCustomers(recent.customers ?? []);
       setForm((f) =>
         !f.payment.bankAccountId && b.length
           ? { ...f, payment: { ...f.payment, bankAccountId: b[0].id } }
@@ -218,12 +241,39 @@ export default function NewReceiptPage() {
 
         <div className="mt-7 card-lift divide-y divide-divider">
           <Sec title="Customer" done={customerDone}>
-            <Row2>
-              <LineInput
-                placeholder="Name"
-                value={form.customer.name}
-                onChange={(e) => patch("customer", { name: e.target.value })}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+              <div className="relative">
+                <LineInput
+                  placeholder="Name"
+                  value={form.customer.name}
+                  onChange={(e) => patch("customer", { name: e.target.value })}
+                  onFocus={() => setNameFocused(true)}
+                  onBlur={() => setTimeout(() => setNameFocused(false), 150)}
+                />
+                {nameFocused &&
+                customerMatches.length > 0 &&
+                form.customer.name.trim().length >= 2 ? (
+                  <ul className="absolute left-0 right-0 top-full mt-1 z-10 bg-white border border-divider rounded-lg shadow-lg overflow-hidden divide-y divide-divider">
+                    {customerMatches.map((c) => (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            applyCustomerChip(c);
+                            setCustomerMatches([]);
+                            setNameFocused(false);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-divider-soft transition-colors"
+                        >
+                          <div className="text-sm text-ink">{c.name}</div>
+                          <div className="text-xs text-muted truncate">{c.email}</div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
               <LineInput
                 type="email"
                 inputMode="email"
@@ -231,20 +281,7 @@ export default function NewReceiptPage() {
                 value={form.customer.email}
                 onChange={(e) => patch("customer", { email: e.target.value })}
               />
-            </Row2>
-            {recentCustomers.length > 0 && !customerDone ? (
-              <ChipRow>
-                {recentCustomers.map((c) => (
-                  <Chip
-                    key={c.id}
-                    onClick={() => applyCustomerChip(c)}
-                    selected={c.email.toLowerCase() === form.customer.email.toLowerCase()}
-                  >
-                    {c.name}
-                  </Chip>
-                ))}
-              </ChipRow>
-            ) : null}
+            </div>
             {reveals.address ? (
               <Textarea
                 rows={3}
