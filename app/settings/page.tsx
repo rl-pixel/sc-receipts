@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { TopNav } from "@/components/TopNav";
+import { BottomNav } from "@/components/BottomNav";
 import { Field } from "@/components/Field";
 import { PillToggle } from "@/components/PillToggle";
 
@@ -38,7 +39,7 @@ export default function SettingsPage() {
   }, []);
 
   return (
-    <div className="min-h-full pb-16">
+    <div className="min-h-full pb-28 sm:pb-16">
       <TopNav active="settings" />
       <main className="max-w-3xl mx-auto px-4 pt-6">
         <h1 className="text-3xl font-bold tracking-tight text-ink">Settings</h1>
@@ -67,6 +68,7 @@ export default function SettingsPage() {
           <NewSeller onCreated={refresh} />
         </section>
       </main>
+      <BottomNav active="settings" />
     </div>
   );
 }

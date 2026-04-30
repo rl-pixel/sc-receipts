@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { TopNav } from "@/components/TopNav";
+import { BottomNav } from "@/components/BottomNav";
 import { formatUSD } from "@/lib/money";
 import { PayoutForm, PayoutDeleteButton } from "./Client";
 
@@ -33,7 +34,7 @@ export default async function PayoutsPage() {
     .map((s) => s.name);
 
   return (
-    <div className="min-h-full pb-16">
+    <div className="min-h-full pb-28 sm:pb-16">
       <TopNav active="payouts" />
       <main className="max-w-3xl mx-auto px-4 pt-6">
         <h1 className="text-3xl font-bold tracking-tight text-ink">Payouts</h1>
@@ -105,6 +106,7 @@ export default async function PayoutsPage() {
           </div>
         ) : null}
       </main>
+      <BottomNav active="payouts" />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { TopNav } from "@/components/TopNav";
+import { BottomNav } from "@/components/BottomNav";
 import { formatUSD } from "@/lib/money";
 import { ReceiptDetailActions } from "./Actions";
 
@@ -25,7 +26,7 @@ export default async function ReceiptDetailPage({
   const pdfUrl = `/api/receipts/${receipt.id}/pdf`;
 
   return (
-    <div className="min-h-full pb-16">
+    <div className="min-h-full pb-28 sm:pb-16">
       <TopNav active="history" />
       <main className="max-w-3xl mx-auto px-4 pt-6">
         <div className="flex items-center justify-between text-sm">
@@ -125,6 +126,7 @@ export default async function ReceiptDetailPage({
           </div>
         </div>
       </main>
+      <BottomNav active="history" />
     </div>
   );
 }

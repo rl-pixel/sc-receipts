@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
+import { BottomNav } from "@/components/BottomNav";
 import { Textarea, LineInput } from "@/components/Field";
 import { PillToggle } from "@/components/PillToggle";
 import {
@@ -231,7 +232,7 @@ export default function NewReceiptPage() {
   }
 
   return (
-    <div className="min-h-full pb-32">
+    <div className="min-h-full pb-44 sm:pb-32">
       <TopNav active="new" />
       <main className="max-w-2xl mx-auto px-4 pt-8">
         <h1 className="text-3xl font-bold tracking-tight text-ink">New receipt</h1>
@@ -530,8 +531,8 @@ export default function NewReceiptPage() {
         ) : null}
       </main>
 
-      <div className="fixed bottom-0 inset-x-0 z-30 bg-bg/95 backdrop-blur-md border-t border-divider">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+      <div className="fixed bottom-[64px] sm:bottom-0 inset-x-0 z-30 bg-bg/95 backdrop-blur-md border-t border-divider">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <div className="flex-1 nums">
             <div className="text-xs text-muted">Total</div>
             <div className="text-xl font-semibold text-ink leading-tight">
@@ -542,12 +543,14 @@ export default function NewReceiptPage() {
             type="button"
             onClick={submit}
             disabled={!allDone || submitting}
-            className="bg-accent hover:bg-accent-deep text-white font-medium text-base py-3 px-6 rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="bg-accent hover:bg-accent-deep text-white font-semibold text-base py-3.5 px-7 rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
           >
             {submitting ? "Saving…" : "Save receipt →"}
           </button>
         </div>
       </div>
+
+      <BottomNav active="new" />
     </div>
   );
 }
