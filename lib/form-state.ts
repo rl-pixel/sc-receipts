@@ -55,7 +55,16 @@ export function loadForm(): FormState | null {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as FormState;
+    const parsed = JSON.parse(raw) as Partial<FormState>;
+    const empty = emptyForm();
+    return {
+      payment: { ...empty.payment, ...(parsed.payment ?? {}) },
+      customer: { ...empty.customer, ...(parsed.customer ?? {}) },
+      watch: { ...empty.watch, ...(parsed.watch ?? {}) },
+      seller: { ...empty.seller, ...(parsed.seller ?? {}) },
+      totals: { ...empty.totals, ...(parsed.totals ?? {}) },
+      notes: parsed.notes ?? "",
+    };
   } catch {
     return null;
   }
