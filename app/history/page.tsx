@@ -95,9 +95,11 @@ export default async function HistoryPage({
           <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm nums">
             <Stat label="Sales" value={String(receipts.length)} />
             <Stat label="Total" value={formatUSD(totalSales)} />
-            {Object.entries(commissionByPerson).map(([name, cents]) => (
-              <Stat key={name} label={`${name} commission`} value={formatUSD(cents)} />
-            ))}
+            {Object.entries(commissionByPerson)
+              .filter(([, cents]) => cents > 0)
+              .map(([name, cents]) => (
+                <Stat key={name} label={`Commission owed to ${name}`} value={formatUSD(cents)} />
+              ))}
           </div>
         </div>
 

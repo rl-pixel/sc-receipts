@@ -99,7 +99,7 @@ export default async function ReceiptDetailPage({
             <Detail label="Sold by" value={receipt.soldBy} />
             {receipt.commissionAmountCents ? (
               <Detail
-                label="Commission"
+                label={`Owed to ${receipt.soldBy}`}
                 value={
                   <span className="text-success">
                     {formatUSD(receipt.commissionAmountCents)}
