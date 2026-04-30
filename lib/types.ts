@@ -1,5 +1,5 @@
-export type Condition = "New" | "Like New" | "Excellent" | "Very Good" | "Good";
-export const CONDITIONS: Condition[] = ["New", "Like New", "Excellent", "Very Good", "Good"];
+export type Condition = "New" | "Like new";
+export const CONDITIONS: Condition[] = ["New", "Like new"];
 
 export type PaymentMethod = "Zelle" | "Wire" | "Other";
 export const PAYMENT_METHODS: PaymentMethod[] = ["Zelle", "Wire", "Other"];

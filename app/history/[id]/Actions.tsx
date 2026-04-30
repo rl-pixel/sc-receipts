@@ -28,14 +28,14 @@ export function ReceiptDetailActions({ id, email, receiptNumber }: Props) {
       <a
         href={pdfUrl}
         download={filename}
-        className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2.5 rounded-full transition-colors"
+        className="bg-accent hover:bg-accent-deep text-white text-sm px-4 py-2.5 rounded-full transition-colors"
       >
         Download PDF
       </a>
       <button
         type="button"
         onClick={copyEmail}
-        className="bg-card border border-divider text-ink uppercase text-xs tracking-wider px-4 py-2.5 rounded-full hover:border-ink transition-colors"
+        className="bg-card border border-divider text-ink text-sm px-4 py-2.5 rounded-full hover:border-ink transition-colors"
       >
         {copied ? "Copied ✓" : "Copy email"}
       </button>

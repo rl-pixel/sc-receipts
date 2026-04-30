@@ -62,7 +62,7 @@ export default async function HistoryPage({
     <div className="min-h-full pb-16">
       <TopNav active="history" />
       <main className="max-w-4xl mx-auto px-4 pt-6">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">History.</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-ink">History</h1>
 
         <div className="mt-6 flex flex-col gap-4">
           <form action="/history" method="get" className="flex gap-2">
@@ -76,13 +76,13 @@ export default async function HistoryPage({
             {brand ? <input type="hidden" name="brand" value={brand} /> : null}
             <button
               type="submit"
-              className="bg-accent text-white border-accent uppercase text-xs tracking-wider px-4 rounded-lg"
+              className="bg-accent hover:bg-accent-deep text-white text-sm px-4 rounded-lg transition-colors"
             >
               Search
             </button>
           </form>
 
-          <div className="flex flex-wrap gap-2 text-xs uppercase tracking-wider">
+          <div className="flex flex-wrap gap-2 text-xs">
             <RangeChip current={range} value="all" q={q} brand={brand} label="All" />
             <RangeChip current={range} value="30d" q={q} brand={brand} label="Last 30 days" />
             <RangeChip current={range} value="month" q={q} brand={brand} label="This month" />
@@ -125,7 +125,7 @@ export default async function HistoryPage({
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-ink nums">{formatUSD(r.totalCents)}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-muted">
+                    <div className="text-xs text-muted">
                       {r.soldBy}
                     </div>
                   </div>
@@ -142,7 +142,7 @@ export default async function HistoryPage({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-card border border-divider rounded-lg px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
+      <div className="text-xs text-muted">{label}</div>
       <div className="text-ink text-base">{value}</div>
     </div>
   );

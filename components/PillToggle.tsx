@@ -21,7 +21,7 @@ export function PillToggle<T extends string>({
 }: Props<T>) {
   const padY = size === "sm" ? "py-1.5" : "py-2.5";
   const padX = size === "sm" ? "px-3.5" : "px-4";
-  const text = size === "sm" ? "text-xs" : "text-sm";
+  const text = size === "sm" ? "text-sm" : "text-sm";
 
   return (
     <div
@@ -39,7 +39,7 @@ export function PillToggle<T extends string>({
             aria-checked={selected}
             disabled={opt.disabled}
             onClick={() => onChange(opt.value)}
-            className={`${padY} ${padX} ${text} rounded-full font-medium tracking-wide transition-colors disabled:opacity-40 ${
+            className={`${padY} ${padX} ${text} rounded-full font-medium transition-colors disabled:opacity-40 ${
               selected
                 ? "bg-white text-ink shadow-sm border border-divider"
                 : "text-muted hover:text-ink"

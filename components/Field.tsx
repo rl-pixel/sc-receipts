@@ -1,9 +1,9 @@
 "use client";
 
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 
-type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
-  label: string;
+type FieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
+  label?: string;
   hint?: ReactNode;
   prefix?: ReactNode;
   suffix?: ReactNode;
@@ -18,12 +18,12 @@ export function Field({
   size = "md",
   className = "",
   ...rest
-}: Props) {
+}: FieldProps) {
   const padY = size === "lg" ? "py-3.5" : size === "sm" ? "py-2" : "py-2.5";
   const fontSize = size === "lg" ? "text-lg" : "text-base";
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] uppercase tracking-wider text-muted">{label}</span>
+      {label ? <span className="text-sm text-muted">{label}</span> : null}
       <div className="flex items-center gap-2 bg-white border border-divider rounded-lg px-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-soft transition-colors">
         {prefix ? <span className="text-muted text-sm">{prefix}</span> : null}
         <input
@@ -37,19 +37,37 @@ export function Field({
   );
 }
 
+export function LineInput({
+  prefix,
+  suffix,
+  className = "",
+  ...rest
+}: InputHTMLAttributes<HTMLInputElement> & { prefix?: ReactNode; suffix?: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-divider focus-within:border-accent transition-colors">
+      {prefix ? <span className="text-muted-soft text-base">{prefix}</span> : null}
+      <input
+        {...rest}
+        className={`flex-1 bg-transparent py-2 text-base text-ink placeholder:text-muted-soft outline-none ${className}`}
+      />
+      {suffix ? <span className="text-muted-soft text-sm">{suffix}</span> : null}
+    </div>
+  );
+}
+
 export function Textarea({
   label,
   hint,
   rows = 3,
   ...rest
-}: {
-  label: string;
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  label?: string;
   hint?: ReactNode;
   rows?: number;
-} & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+}) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] uppercase tracking-wider text-muted">{label}</span>
+      {label ? <span className="text-sm text-muted">{label}</span> : null}
       <textarea
         rows={rows}
         {...rest}

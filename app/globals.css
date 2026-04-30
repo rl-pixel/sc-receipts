@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Admin app — light Mercury-style with royal blue accents */
   --color-bg: #ffffff;
   --color-surface: #fafafa;
   --color-card: #ffffff;
@@ -16,7 +15,6 @@
   --color-success: #16a34a;
   --color-warn: #ea580c;
 
-  /* Customer receipt — kept white, no royal blue accent */
   --color-paper: #ffffff;
   --color-paper-ink: #0a0a0a;
   --color-paper-muted: #6b6b6b;
@@ -25,7 +23,6 @@
   --color-paper-success-bg: #e8f5ee;
 
   --font-sans: var(--font-inter);
-  --font-display: var(--font-playfair);
   --font-mark: var(--font-dm-sans);
 }
 
@@ -39,6 +36,7 @@ body {
   font-feature-settings: "tnum" 1, "ss01" 1;
 }
 
+/* The Studio Chrono wordmark — DM Sans, the only all-caps surface in the app */
 .wordmark {
   font-family: var(--font-mark), system-ui, sans-serif;
   font-weight: 700;
@@ -50,11 +48,4 @@ body {
 .nums {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
-}
-
-/* Subtle focus ring for inputs */
-.focus-ring {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
-  border-color: var(--color-accent);
 }

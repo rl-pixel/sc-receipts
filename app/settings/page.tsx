@@ -41,12 +41,10 @@ export default function SettingsPage() {
     <div className="min-h-full pb-16">
       <TopNav active="settings" />
       <main className="max-w-3xl mx-auto px-4 pt-6">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">
-          Settings.
-        </h1>
+        <h1 className="text-3xl font-bold tracking-tight text-ink">Settings</h1>
 
         <section className="mt-10">
-          <h2 className="text-[10px] uppercase tracking-[0.2em] text-muted mb-4 border-b border-divider pb-2">
+          <h2 className="text-sm font-medium text-muted mb-4 border-b border-divider pb-2">
             Bank accounts
           </h2>
           <ul className="flex flex-col gap-2">
@@ -58,7 +56,7 @@ export default function SettingsPage() {
         </section>
 
         <section className="mt-12">
-          <h2 className="text-[10px] uppercase tracking-[0.2em] text-muted mb-4 border-b border-divider pb-2">
+          <h2 className="text-sm font-medium text-muted mb-4 border-b border-divider pb-2">
             Sellers
           </h2>
           <ul className="flex flex-col gap-2">
@@ -107,13 +105,13 @@ function BankRow({ bank, onChange }: { bank: Bank; onChange: () => void }) {
         <div className="flex gap-2 shrink-0">
           <button
             onClick={() => setEditing(true)}
-            className="text-xs uppercase tracking-wider text-muted hover:text-ink"
+            className="text-sm text-muted hover:text-ink"
           >
             Edit
           </button>
           <button
             onClick={remove}
-            className="text-xs uppercase tracking-wider text-muted hover:text-warn"
+            className="text-sm text-muted hover:text-warn"
           >
             Hide
           </button>
@@ -148,13 +146,13 @@ function BankRow({ bank, onChange }: { bank: Bank; onChange: () => void }) {
       <div className="flex gap-2 mt-1">
         <button
           onClick={save}
-          className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2 rounded-full transition-colors"
+          className="bg-accent hover:bg-accent-deep text-white text-sm px-4 py-2 rounded-full transition-colors"
         >
           Save
         </button>
         <button
           onClick={() => setEditing(false)}
-          className="text-xs uppercase tracking-wider text-muted hover:text-ink"
+          className="text-sm text-muted hover:text-ink"
         >
           Cancel
         </button>
@@ -185,7 +183,7 @@ function NewBank({ onCreated }: { onCreated: () => void }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-3 text-xs uppercase tracking-wider text-muted hover:text-ink"
+        className="mt-3 text-sm text-muted hover:text-ink"
       >
         + Add bank account
       </button>
@@ -223,13 +221,13 @@ function NewBank({ onCreated }: { onCreated: () => void }) {
       <div className="flex gap-2 mt-1">
         <button
           onClick={create}
-          className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2 rounded-full transition-colors"
+          className="bg-accent hover:bg-accent-deep text-white text-sm px-4 py-2 rounded-full transition-colors"
         >
           Add
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="text-xs uppercase tracking-wider text-muted hover:text-ink"
+          className="text-sm text-muted hover:text-ink"
         >
           Cancel
         </button>
@@ -276,7 +274,7 @@ function SellerRow({ seller, onChange }: { seller: Seller; onChange: () => void 
         </div>
         <button
           onClick={() => setEditing(true)}
-          className="text-xs uppercase tracking-wider text-muted hover:text-ink"
+          className="text-sm text-muted hover:text-ink"
         >
           Edit
         </button>
@@ -315,13 +313,13 @@ function SellerRow({ seller, onChange }: { seller: Seller; onChange: () => void 
       <div className="flex gap-2 mt-1">
         <button
           onClick={save}
-          className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2 rounded-full transition-colors"
+          className="bg-accent hover:bg-accent-deep text-white text-sm px-4 py-2 rounded-full transition-colors"
         >
           Save
         </button>
         <button
           onClick={() => setEditing(false)}
-          className="text-xs uppercase tracking-wider text-muted hover:text-ink"
+          className="text-sm text-muted hover:text-ink"
         >
           Cancel
         </button>
@@ -350,7 +348,7 @@ function NewSeller({ onCreated }: { onCreated: () => void }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-3 text-xs uppercase tracking-wider text-muted hover:text-ink"
+        className="mt-3 text-sm text-muted hover:text-ink"
       >
         + Add seller
       </button>
@@ -368,13 +366,13 @@ function NewSeller({ onCreated }: { onCreated: () => void }) {
       <div className="flex gap-2 mt-1">
         <button
           onClick={create}
-          className="bg-accent hover:bg-accent-deep text-white uppercase text-xs tracking-wider px-4 py-2 rounded-full transition-colors"
+          className="bg-accent hover:bg-accent-deep text-white text-sm px-4 py-2 rounded-full transition-colors"
         >
           Add
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="text-xs uppercase tracking-wider text-muted hover:text-ink"
+          className="text-sm text-muted hover:text-ink"
         >
           Cancel
         </button>

@@ -38,7 +38,7 @@ export default async function ReceiptDetailPage({
             </div>
             <Link
               href="/"
-              className="text-xs uppercase tracking-wider text-muted hover:text-ink"
+              className="text-sm text-muted hover:text-ink"
             >
               New →
             </Link>
@@ -46,7 +46,7 @@ export default async function ReceiptDetailPage({
         ) : (
           <Link
             href="/history"
-            className="text-xs uppercase tracking-wider text-muted hover:text-ink"
+            className="text-sm text-muted hover:text-ink"
           >
             ← History
           </Link>
@@ -54,10 +54,10 @@ export default async function ReceiptDetailPage({
 
         <div className="mt-4 grid md:grid-cols-[1fr_auto] gap-6 items-start">
           <div>
-            <div className="text-xs uppercase tracking-wider text-muted">
+            <div className="text-sm text-muted">
               {receipt.receiptNumber}
             </div>
-            <h1 className="font-[family-name:var(--font-display)] text-3xl mt-1 tracking-tight">
+            <h1 className="text-3xl mt-1 font-bold tracking-tight text-ink">
               {receipt.customer.name}
             </h1>
             <p className="text-muted text-sm mt-1">{receipt.customer.email}</p>
@@ -93,7 +93,7 @@ export default async function ReceiptDetailPage({
             <Detail
               label="Total paid"
               value={
-                <span className="font-[family-name:var(--font-display)] text-xl">
+                <span className="text-xl font-semibold">
                   {formatUSD(receipt.totalCents)}
                 </span>
               }
@@ -126,9 +126,7 @@ export default async function ReceiptDetailPage({
         </div>
 
         <div className="mt-8">
-          <h2 className="text-[10px] uppercase tracking-[0.2em] text-muted mb-3">
-            Receipt PDF
-          </h2>
+          <h2 className="text-sm text-muted font-medium mb-3">Receipt PDF</h2>
           <div className="bg-card border border-divider rounded-xl overflow-hidden">
             <iframe
               src={pdfUrl}
@@ -154,7 +152,7 @@ function Card({ children }: { children: React.ReactNode }) {
 function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between items-baseline gap-3">
-      <span className="text-xs uppercase tracking-wider text-muted shrink-0">{label}</span>
+      <span className="text-sm text-muted shrink-0">{label}</span>
       <span className="text-ink text-right">{value}</span>
     </div>
   );
