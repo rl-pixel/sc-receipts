@@ -1,16 +1,11 @@
 import { config } from "dotenv";
 import { PrismaClient } from "../app/generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaNeon } from "@prisma/adapter-neon";
 
 config();
 
-function sqlitePath(): string {
-  const url = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
-  return url.startsWith("file:") ? url.slice("file:".length) : url;
-}
-
 const db = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({ url: sqlitePath() }),
+  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL ?? "" }),
 });
 
 async function main() {
@@ -21,7 +16,6 @@ async function main() {
     await db.seller.upsert({ where: { name: s.name }, update: {}, create: s });
   }
 
-  // Migrate any existing seeded labels from old generic names
   await db.bankAccount.updateMany({
     where: { label: "Primary (Zelle)" },
     data: { label: "Zelle account", acceptsZelle: true, acceptsWire: false },
@@ -36,12 +30,7 @@ async function main() {
       data: { label: "Mercury", acceptsZelle: false, acceptsWire: true, sortOrder: 0 },
     });
     await db.bankAccount.create({
-      data: {
-        label: "Zelle account",
-        acceptsZelle: true,
-        acceptsWire: false,
-        sortOrder: 1,
-      },
+      data: { label: "Zelle account", acceptsZelle: true, acceptsWire: false, sortOrder: 1 },
     });
   }
 
@@ -50,10 +39,8 @@ async function main() {
   }
 
   for (const s of [
-    { key: "defaultShippingCents", value: "2900" },
     { key: "businessName", value: "Studio Chrono" },
     { key: "businessLocation", value: "Miami, FL" },
-    { key: "businessFooter", value: "5.0 ★ on Chrono24 · 315+ reviews" },
     { key: "businessWebsite", value: "studiochrono.com" },
   ]) {
     await db.appSetting.upsert({ where: { key: s.key }, update: {}, create: s });

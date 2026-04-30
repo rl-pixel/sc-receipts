@@ -77,37 +77,68 @@ In production (Vercel + Neon), backups happen automatically.
 
 ---
 
-## Deploying to the web (production)
+## Deploying to Vercel (production)
 
-Once you're ready for Joe to use this from his phone in the wild:
+The app is now configured for Postgres. Here's the path from "code on
+your laptop" to "permanent URL anyone can visit":
 
-### 1. Push the code to GitHub
+### 1. Get a Postgres connection string
+
+The easiest path: sign up free at [neon.tech](https://neon.tech). Click **Create a project**, name it `studio-chrono`, accept defaults. They'll show you a connection string that looks like:
+
+```
+postgresql://USER:PASS@ep-xxx-xxx.us-east-2.aws.neon.tech/studiochrono?sslmode=require
+```
+
+Copy it.
+
+### 2. Wire it up locally
+
+Paste the URL into your `.env` file:
 
 ```bash
-cd studio-chrono-app
-git remote add origin git@github.com:YOUR_USERNAME/studio-chrono-app.git
+DATABASE_URL="postgresql://USER:PASS@ep-xxx-xxx.us-east-2.aws.neon.tech/studiochrono?sslmode=require"
+```
+
+Then create the initial migration + seed:
+
+```bash
+npm run db:migrate    # name the migration "init" when prompted
+npm run db:seed
+npm run dev           # confirm the app works against Neon
+```
+
+### 3. Push the code to GitHub
+
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/studio-chrono-app.git
 git push -u origin main
 ```
 
-### 2. Create a free Vercel account
+### 4. Connect Vercel
 
-Go to [vercel.com](https://vercel.com), sign in with GitHub, and import this repo. Vercel will auto-detect Next.js and deploy.
+1. Sign up free at [vercel.com](https://vercel.com) (sign in with GitHub).
+2. Click **Add New Project** → import the `studio-chrono-app` repo.
+3. **Before deploying**, expand **Environment Variables** and add:
+   - `DATABASE_URL` = the same Neon connection string from step 1
+   - `ADMIN_PASSWORD` = a long random string (this is what you'll type to log in)
+4. Click **Deploy**. Vercel runs `prisma migrate deploy && prisma db seed && next build` automatically.
 
-### 3. Switch to Postgres
+After ~2 minutes you have a permanent URL like `studio-chrono-app.vercel.app`.
 
-SQLite doesn't work on Vercel (the file gets wiped on every deploy). You need a hosted Postgres:
+### 5. (Optional) Custom domain
 
-- Go to [neon.tech](https://neon.tech), sign up for the free tier, create a database called `studiochrono`.
-- Copy the connection string they give you.
-- In Vercel → your project → **Settings** → **Environment Variables**, set:
-  - `DATABASE_URL` = the Neon connection string
-  - `ADMIN_PASSWORD` = a long random password (this is what you'll type to access the app)
-- Change `prisma/schema.prisma` line `provider = "sqlite"` to `provider = "postgresql"`.
-- Locally run `npm run db:migrate` once with the Neon URL set, then push and redeploy.
+If you own `studiochrono.com`, point a subdomain like `receipts.studiochrono.com` at this Vercel project — go to Vercel → **Settings** → **Domains** and follow the DNS instructions.
 
-### 4. Custom domain (optional)
+### Updating the app later
 
-If you own `studiochrono.com`, you can point a subdomain like `receipts.studiochrono.com` at this Vercel project — go to Vercel → **Settings** → **Domains** and follow the DNS instructions.
+After any code change:
+
+```bash
+git add . && git commit -m "your change" && git push
+```
+
+Vercel auto-redeploys within a minute. Migrations run automatically.
 
 ---
 
