@@ -94,6 +94,20 @@ model Seller {
   active                 Boolean @default(true)
   sortOrder              Int     @default(0)
   createdAt              DateTime @default(now())
+  payouts                Payout[]
+}
+
+model Payout {
+  id          String   @id @default(cuid())
+  sellerId    String
+  seller      Seller   @relation(fields: [sellerId], references: [id])
+  amountCents Int
+  paidAt      DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([sellerId])
+  @@index([paidAt])
 }
 
 model Brand {

@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { Wordmark } from "./Wordmark";
 
-export function TopNav({ active }: { active?: "new" | "history" | "settings" }) {
+export function TopNav({
+  active,
+}: {
+  active?: "new" | "history" | "payouts" | "settings";
+}) {
   return (
     <header className="sticky top-0 z-20 bg-bg/85 backdrop-blur-md border-b border-divider">
       <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -11,6 +15,7 @@ export function TopNav({ active }: { active?: "new" | "history" | "settings" }) 
         <nav className="flex items-center gap-1 text-sm">
           <NavLink href="/" active={active === "new"} label="New" />
           <NavLink href="/history" active={active === "history"} label="History" />
+          <NavLink href="/payouts" active={active === "payouts"} label="Payouts" />
           <NavLink href="/settings" active={active === "settings"} label="Settings" />
         </nav>
       </div>
