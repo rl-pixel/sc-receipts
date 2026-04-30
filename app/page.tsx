@@ -292,7 +292,7 @@ export default function NewReceiptPage() {
                 <option key={b.name} value={b.name} />
               ))}
             </datalist>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1">
+            <div className="flex items-center gap-6 pt-1">
               <CheckRow
                 label="Box"
                 checked={form.watch.hasBox}
@@ -303,6 +303,9 @@ export default function NewReceiptPage() {
                 checked={form.watch.hasPapers}
                 onChange={(v) => patch("watch", { hasPapers: v })}
               />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted">Condition</span>
               <PillToggle
                 value={form.watch.condition}
                 options={CONDITIONS.map((c) => ({ value: c, label: c }))}
