@@ -4,9 +4,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
-import { StatsHero } from "@/components/StatsHero";
-import { ChatReceipt } from "@/components/ChatReceipt";
-import { RecentSales } from "@/components/RecentSales";
 import { Textarea, LineInput } from "@/components/Field";
 import { PillToggle } from "@/components/PillToggle";
 import {
@@ -65,7 +62,6 @@ export default function NewReceiptPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reveals, setReveals] = useState<Reveals>(initialReveals);
-  const [mode, setMode] = useState<"chat" | "manual">("chat");
 
   useEffect(() => {
     const saved = loadForm();
@@ -247,36 +243,12 @@ export default function NewReceiptPage() {
   return (
     <div className="min-h-full pb-44 sm:pb-32">
       <TopNav active="new" />
-      <main className="max-w-2xl mx-auto px-4 pt-6">
-        <StatsHero />
+      <main className="max-w-2xl mx-auto px-4 pt-8">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
+          New receipt
+        </h1>
+        <p className="text-sm text-muted mt-1">Fill these four.</p>
 
-        <RecentSales />
-
-        {mode === "chat" ? (
-          <div className="mt-6">
-            <ChatReceipt onSwitchToManual={() => setMode("manual")} />
-          </div>
-        ) : (
-          <>
-            <div className="mt-7 flex items-baseline justify-between">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
-                New receipt
-              </h1>
-              <button
-                type="button"
-                onClick={() => setMode("chat")}
-                className="text-sm text-accent hover:text-accent-deep font-medium"
-              >
-                Use chat instead →
-              </button>
-            </div>
-            <p className="text-sm text-muted mt-1">
-              Fill these four.
-            </p>
-          </>
-        )}
-
-        {mode === "manual" ? (
         <>
         <div className="mt-7 card-lift divide-y divide-divider">
           <Sec title="Customer" done={customerDone}>
@@ -568,29 +540,26 @@ export default function NewReceiptPage() {
           </div>
         ) : null}
         </>
-        ) : null}
       </main>
 
-      {mode === "manual" ? (
-        <div className="fixed bottom-[64px] sm:bottom-0 inset-x-0 z-30 bg-bg/95 backdrop-blur-md border-t border-divider">
-          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-            <div className="flex-1 nums">
-              <div className="text-xs text-muted">Total</div>
-              <div className="text-xl font-semibold text-ink leading-tight">
-                {formatUSD(totalCents)}
-              </div>
+      <div className="fixed bottom-[64px] sm:bottom-0 inset-x-0 z-30 bg-bg/95 backdrop-blur-md border-t border-divider">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div className="flex-1 nums">
+            <div className="text-xs text-muted">Total</div>
+            <div className="text-xl font-semibold text-ink leading-tight">
+              {formatUSD(totalCents)}
             </div>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={!allDone || submitting}
-              className="bg-accent hover:bg-accent-deep text-white font-semibold text-base py-3.5 px-7 rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
-            >
-              {submitting ? "Saving…" : "Save receipt →"}
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!allDone || submitting}
+            className="bg-accent hover:bg-accent-deep text-white font-semibold text-base py-3.5 px-7 rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+          >
+            {submitting ? "Saving…" : "Save receipt →"}
+          </button>
         </div>
-      ) : null}
+      </div>
 
       <BottomNav active="new" />
     </div>
