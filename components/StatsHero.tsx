@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Flame, Trophy } from "lucide-react";
 import { formatUSD } from "@/lib/money";
 
 type Stats = {
-  week: { revenueCents: number; count: number };
-  lastWeek: { revenueCents: number; count: number };
-  today: { revenueCents: number; count: number };
+  month: { revenueCents: number; count: number };
+  lastMonthThroughSameDay: { revenueCents: number; count: number };
+  streak: number;
+  bestMonthEver: boolean;
 };
 
 export function StatsHero() {
@@ -30,39 +31,85 @@ export function StatsHero() {
     };
   }, []);
 
-  const week = stats?.week ?? { revenueCents: 0, count: 0 };
-  const lastWeek = stats?.lastWeek ?? { revenueCents: 0, count: 0 };
+  const month = stats?.month ?? { revenueCents: 0, count: 0 };
+  const last = stats?.lastMonthThroughSameDay ?? { revenueCents: 0, count: 0 };
 
   const delta =
-    lastWeek.revenueCents > 0
-      ? ((week.revenueCents - lastWeek.revenueCents) / lastWeek.revenueCents) * 100
+    last.revenueCents > 0
+      ? ((month.revenueCents - last.revenueCents) / last.revenueCents) * 100
       : null;
   const isUp = (delta ?? 0) >= 0;
 
+  const monthName = new Intl.DateTimeFormat("en-US", { month: "long" }).format(new Date());
+
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-accent to-accent-deep text-white p-5 shadow-md overflow-hidden relative">
-      <div className="text-[11px] uppercase tracking-wider font-medium opacity-80">
-        Last 7 days
+    <div className="flex flex-col gap-3">
+      <div className="rounded-2xl bg-gradient-to-br from-accent to-accent-deep text-white p-5 shadow-md relative overflow-hidden">
+        <div className="text-[11px] uppercase tracking-wider font-medium opacity-80">
+          {monthName}
+        </div>
+        <div className="flex items-baseline gap-3 mt-1 nums">
+          <CountUp
+            valueCents={month.revenueCents}
+            className="text-3xl sm:text-4xl font-bold tracking-tight"
+          />
+          {delta !== null ? (
+            <span
+              className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                isUp ? "bg-success/30 text-white" : "bg-white/20 text-white"
+              }`}
+            >
+              {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {Math.abs(Math.round(delta))}%
+            </span>
+          ) : null}
+        </div>
+        <div className="text-sm opacity-80 mt-1">
+          {month.count} {month.count === 1 ? "sale" : "sales"}
+          {last.revenueCents > 0
+            ? ` · ${formatUSD(last.revenueCents)} same time last month`
+            : ""}
+        </div>
       </div>
-      <div className="flex items-baseline gap-3 mt-1 nums">
-        <CountUp valueCents={week.revenueCents} className="text-3xl sm:text-4xl font-bold tracking-tight" />
-        {delta !== null ? (
-          <span
-            className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-              isUp ? "bg-success/30 text-white" : "bg-white/20 text-white"
-            }`}
-          >
-            {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {Math.abs(Math.round(delta))}%
-          </span>
-        ) : null}
-      </div>
-      <div className="text-sm opacity-80 mt-1">
-        {week.count} {week.count === 1 ? "sale" : "sales"} ·{" "}
-        {lastWeek.count > 0
-          ? `${formatUSD(lastWeek.revenueCents)} prior week`
-          : "first week tracked"}
-      </div>
+
+      {stats ? <Streaks streak={stats.streak} bestMonthEver={stats.bestMonthEver} /> : null}
+    </div>
+  );
+}
+
+function Streaks({ streak, bestMonthEver }: { streak: number; bestMonthEver: boolean }) {
+  const items: { icon: React.ReactNode; bg: string; text: string; label: string }[] = [];
+
+  if (streak >= 2) {
+    items.push({
+      icon: <Flame size={16} />,
+      bg: "bg-orange-100",
+      text: "text-orange-700",
+      label: `${streak}-day streak`,
+    });
+  }
+  if (bestMonthEver) {
+    items.push({
+      icon: <Trophy size={16} />,
+      bg: "bg-gold-soft",
+      text: "text-amber-700",
+      label: "Best month ever",
+    });
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((it, i) => (
+        <div
+          key={i}
+          className={`${it.bg} ${it.text} px-3 py-2 rounded-full inline-flex items-center gap-2 text-sm font-medium`}
+        >
+          {it.icon}
+          {it.label}
+        </div>
+      ))}
     </div>
   );
 }
@@ -75,7 +122,7 @@ function CountUp({ valueCents, className }: { valueCents: number; className?: st
       return;
     }
     const start = performance.now();
-    const duration = 700;
+    const duration = 800;
     let raf = 0;
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
