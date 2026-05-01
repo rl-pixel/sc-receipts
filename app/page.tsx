@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
+import { StatsHero } from "@/components/StatsHero";
 import { Textarea, LineInput } from "@/components/Field";
 import { PillToggle } from "@/components/PillToggle";
 import {
@@ -243,8 +244,12 @@ export default function NewReceiptPage() {
   return (
     <div className="min-h-full pb-44 sm:pb-32">
       <TopNav active="new" />
-      <main className="max-w-2xl mx-auto px-4 pt-8">
-        <h1 className="text-3xl font-bold tracking-tight text-ink">New receipt</h1>
+      <main className="max-w-2xl mx-auto px-4 pt-6">
+        <StatsHero />
+
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink mt-7">
+          New receipt
+        </h1>
         <p className="text-sm text-muted mt-1">
           Fill these four. Voice input coming soon.
         </p>

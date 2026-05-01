@@ -10,11 +10,15 @@
   --color-ink: #0f172a;
   --color-muted: #64748b;
   --color-muted-soft: #94a3b8;
-  --color-accent: #1d4ed8;
-  --color-accent-deep: #1e3a8a;
-  --color-accent-soft: #dbeafe;
-  --color-success: #16a34a;
+  --color-accent: #0052ff;
+  --color-accent-deep: #0033a8;
+  --color-accent-soft: #e0ebff;
+  --color-success: #00d924;
+  --color-success-deep: #00a01a;
+  --color-success-soft: #d8fbe0;
   --color-warn: #ea580c;
+  --color-gold: #ffc93c;
+  --color-gold-soft: #fff5d6;
 
   --color-paper: #ffffff;
   --color-paper-ink: #0a0a0a;

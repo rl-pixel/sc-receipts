@@ -17,14 +17,17 @@ export default async function ReceiptDetailPage({
   const sp = await searchParams;
   const justCreated = sp.just_created === "1";
 
-  let receipt: Awaited<
-    ReturnType<typeof db.receipt.findUnique<{ include: { customer: true; bankAccount: true } }>>
-  > = null;
-  try {
-    receipt = await db.receipt.findUnique({
-      where: { id },
+  // helper kept here so its return type can be inferred for `receipt` below
+  async function loadReceipt(rid: string) {
+    return db.receipt.findUnique({
+      where: { id: rid },
       include: { customer: true, bankAccount: true },
     });
+  }
+
+  let receipt: Awaited<ReturnType<typeof loadReceipt>> | null = null;
+  try {
+    receipt = await loadReceipt(id);
   } catch {
     notFound();
   }
