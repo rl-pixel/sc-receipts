@@ -1,24 +1,5 @@
-import path from "node:path";
-import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import type { ReceiptPdfData } from "@/lib/types";
-
-const fontsDir = path.join(process.cwd(), "public", "fonts");
-let fontsRegistered = false;
-function registerFonts() {
-  if (fontsRegistered) return;
-  try {
-    Font.register({
-      family: "Playfair Display",
-      fonts: [
-        { src: path.join(fontsDir, "PlayfairDisplay-Regular.ttf"), fontWeight: 400 },
-        { src: path.join(fontsDir, "PlayfairDisplay-Bold.ttf"), fontWeight: 700 },
-      ],
-    });
-    fontsRegistered = true;
-  } catch {
-    // fall back to Helvetica silently
-  }
-}
 
 const PAPER = {
   bg: "#FFFFFF",
@@ -65,10 +46,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   receiptHeader: {
-    fontFamily: "Playfair Display",
-    fontWeight: 700,
-    fontSize: 30,
-    letterSpacing: -0.6,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 28,
+    letterSpacing: -0.4,
     lineHeight: 1.1,
   },
   receiptMeta: {
@@ -165,10 +145,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   totalValue: {
-    fontFamily: "Playfair Display",
-    fontWeight: 700,
-    fontSize: 22,
-    letterSpacing: -0.4,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 20,
+    letterSpacing: -0.2,
   },
   paidLine: {
     fontSize: 9.5,
@@ -203,7 +182,6 @@ function formatUSD(cents: number): string {
 }
 
 export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
-  registerFonts();
   const { customer, watch, payment, totals, receiptNumber, issuedAt, soldBy, business } = data;
   const shipFull = customer.addressLines
     ? customer.addressLines

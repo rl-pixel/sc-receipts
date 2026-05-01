@@ -1,0 +1,11 @@
+# Treat font files as binary so git doesn't apply CRLF conversion
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
