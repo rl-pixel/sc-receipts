@@ -6,6 +6,7 @@ import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
 import { StatsHero } from "@/components/StatsHero";
 import { ChatReceipt } from "@/components/ChatReceipt";
+import { RecentSales } from "@/components/RecentSales";
 import { Textarea, LineInput } from "@/components/Field";
 import { PillToggle } from "@/components/PillToggle";
 import {
@@ -248,6 +249,8 @@ export default function NewReceiptPage() {
       <TopNav active="new" />
       <main className="max-w-2xl mx-auto px-4 pt-6">
         <StatsHero />
+
+        <RecentSales />
 
         {mode === "chat" ? (
           <div className="mt-6">
