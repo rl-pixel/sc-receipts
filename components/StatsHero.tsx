@@ -44,10 +44,8 @@ export function StatsHero() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-2xl bg-gradient-to-br from-accent to-accent-deep text-white p-5 shadow-md relative overflow-hidden">
-        <div className="text-[11px] uppercase tracking-wider font-medium opacity-80">
-          {monthName}
-        </div>
+      <div className="rounded-3xl bg-gradient-to-br from-accent to-accent-deep text-white p-6 shadow-[0_8px_24px_-8px_rgba(0,82,255,0.4)] relative overflow-hidden">
+        <div className="text-sm font-medium opacity-80">{monthName}</div>
         <div className="flex items-baseline gap-3 mt-1 nums">
           <CountUp
             valueCents={month.revenueCents}

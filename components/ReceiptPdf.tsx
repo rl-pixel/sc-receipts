@@ -84,8 +84,7 @@ const styles = StyleSheet.create({
   colHeader: {
     fontSize: 8,
     color: PAPER.muted,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
+    letterSpacing: 0.4,
     marginBottom: 8,
   },
   colBody: {
@@ -210,7 +209,7 @@ export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
           <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.receiptId}>{receiptNumber}</Text>
             <View style={styles.paidPill}>
-              <Text style={styles.paidText}>PAID IN FULL</Text>
+              <Text style={styles.paidText}>Paid in full</Text>
             </View>
           </View>
         </View>
@@ -278,7 +277,7 @@ export function ReceiptPdf({ data }: { data: ReceiptPdfData }) {
         ) : null}
 
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>TOTAL PAID</Text>
+          <Text style={styles.totalLabel}>Total paid</Text>
           <Text style={styles.totalValue}>{formatUSD(totals.totalCents)}</Text>
         </View>
 

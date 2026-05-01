@@ -9,8 +9,23 @@ import { dollarsToCents, formatUSD } from "@/lib/money";
 
 type Bank = { id: string; label: string; acceptsZelle: boolean; acceptsWire: boolean };
 type Seller = { id: string; name: string };
+type RecentCustomer = {
+  id: string;
+  name: string;
+  email: string;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+};
+type RecentWatch = {
+  brand: string;
+  model: string;
+  referenceNumber: string | null;
+  count: number;
+};
 
-type Step = "amount" | "method" | "customer" | "watch" | "soldby" | "ready";
+type Step = "amount" | "method" | "customer" | "watch" | "boxpapers" | "soldby" | "ready";
 
 type Bubble =
   | { id: string; role: "bot"; text: string }
@@ -55,6 +70,8 @@ export function ChatReceipt({ onSwitchToManual }: { onSwitchToManual: () => void
   const [submitting, setSubmitting] = useState(false);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [recentCustomers, setRecentCustomers] = useState<RecentCustomer[]>([]);
+  const [recentWatches, setRecentWatches] = useState<RecentWatch[]>([]);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -63,14 +80,17 @@ export function ChatReceipt({ onSwitchToManual }: { onSwitchToManual: () => void
     setBubbles([{ id: crypto.randomUUID(), role: "bot", text: copy.greeting() }]);
   }, []);
 
-  // Fetch banks + sellers
+  // Fetch banks + sellers + recents
   useEffect(() => {
     void Promise.all([
       fetch("/api/banks").then((r) => (r.ok ? r.json() : [])),
       fetch("/api/sellers").then((r) => (r.ok ? r.json() : [])),
-    ]).then(([b, s]) => {
+      fetch("/api/recent").then((r) => (r.ok ? r.json() : { customers: [], watches: [] })),
+    ]).then(([b, s, recent]) => {
       setBanks(b);
       setSellers(s);
+      setRecentCustomers(recent.customers ?? []);
+      setRecentWatches(recent.watches ?? []);
       if (b.length) {
         const zelle = b.find((x: Bank) => x.acceptsZelle);
         setState((st) => ({ ...st, bankAccountId: zelle?.id ?? b[0].id }));
@@ -101,6 +121,7 @@ export function ChatReceipt({ onSwitchToManual }: { onSwitchToManual: () => void
       else if (step === "method") addBot(copy.askMethod());
       else if (step === "customer") addBot(copy.askCustomer());
       else if (step === "watch") addBot(copy.askWatch());
+      else if (step === "boxpapers") addBot("Box and papers?");
       else if (step === "soldby") addBot(copy.askSeller());
       else if (step === "ready") addBot(copy.confirm());
     }, 250);
@@ -157,7 +178,7 @@ export function ChatReceipt({ onSwitchToManual }: { onSwitchToManual: () => void
       next.brand = parts[0] ?? "";
       next.model = parts.slice(1).join(" ") || parts[0];
       setState((s) => ({ ...s, ...next }));
-      ask("soldby");
+      ask("boxpapers");
     } else if (state.step === "method" && state.method === "Other") {
       next.methodOther = text;
       setState((s) => ({ ...s, ...next }));
@@ -230,12 +251,12 @@ export function ChatReceipt({ onSwitchToManual }: { onSwitchToManual: () => void
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-180px)] sm:h-[600px] bg-white border border-divider rounded-2xl overflow-hidden shadow-sm">
+    <div className="flex flex-col h-[calc(100vh-260px)] sm:h-[640px] bg-white border border-divider rounded-3xl overflow-hidden shadow-[0_2px_4px_rgba(15,23,42,0.03),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
       {/* Header strip */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-divider bg-gradient-to-r from-accent/5 to-transparent">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-divider bg-gradient-to-r from-accent-soft/40 to-transparent">
         <div>
-          <div className="text-xs uppercase tracking-wider text-muted font-medium">Chat</div>
-          <div className="text-sm text-ink font-semibold">New receipt</div>
+          <div className="text-base font-semibold text-ink">New receipt</div>
+          <div className="text-xs text-muted">Type or drop a screenshot</div>
         </div>
         <button
           type="button"
@@ -286,6 +307,66 @@ export function ChatReceipt({ onSwitchToManual }: { onSwitchToManual: () => void
                 }}
               >
                 {m}
+              </PickerChip>
+            ))}
+          </PickerRow>
+        )}
+
+        {state.step === "customer" && recentCustomers.length > 0 && (
+          <PickerRow>
+            {recentCustomers.slice(0, 5).map((c) => (
+              <PickerChip
+                key={c.id}
+                onClick={() => {
+                  setState((st) => ({
+                    ...st,
+                    customerName: c.name,
+                    customerEmail: c.email,
+                  }));
+                  addUser(c.name);
+                  ask("watch");
+                }}
+              >
+                {c.name}
+              </PickerChip>
+            ))}
+          </PickerRow>
+        )}
+
+        {state.step === "watch" && recentWatches.length > 0 && (
+          <PickerRow>
+            {recentWatches.slice(0, 5).map((w, i) => (
+              <PickerChip
+                key={`${w.brand}-${w.model}-${i}`}
+                onClick={() => {
+                  setState((st) => ({ ...st, brand: w.brand, model: w.model }));
+                  addUser(`${w.brand} ${w.model}`);
+                  ask("boxpapers");
+                }}
+              >
+                {w.brand} {w.model}
+              </PickerChip>
+            ))}
+          </PickerRow>
+        )}
+
+        {state.step === "boxpapers" && (
+          <PickerRow>
+            {[
+              { label: "Both", box: true, papers: true },
+              { label: "Box only", box: true, papers: false },
+              { label: "Papers only", box: false, papers: true },
+              { label: "Neither", box: false, papers: false },
+            ].map((opt) => (
+              <PickerChip
+                key={opt.label}
+                onClick={() => {
+                  setState((s) => ({ ...s, hasBox: opt.box, hasPapers: opt.papers }));
+                  addUser(opt.label);
+                  ask("soldby");
+                }}
+              >
+                {opt.label}
               </PickerChip>
             ))}
           </PickerRow>
