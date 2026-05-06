@@ -50,8 +50,10 @@ export async function GET() {
     if (!res.ok) return NextResponse.json([]);
     const body = (await res.json()) as { paymentRequests?: RawPaymentRequest[] };
     const list = body.paymentRequests ?? [];
+    // Show ALL statuses (Sent, Paid, Cancelled, Expired, etc.) — Joe wants to
+    // be able to find any invoice he made and turn it into a receipt. The
+    // status pill in the UI makes it visually clear which is which.
     const cleaned: MercuryInvoice[] = list
-      .filter((p) => p.paymentRequestData.status !== "Cancelled")
       .map((p) => ({
         id: p.paymentRequestData.id,
         createdAt: p.paymentRequestData.createdAt,

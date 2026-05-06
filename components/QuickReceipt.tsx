@@ -155,6 +155,26 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       .slice(0, 6);
   }, [query, txs]);
 
+  // Same search applied to invoices (name OR amount)
+  const matchedInvoices = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return invoices.slice(0, 6);
+    const numQ = Number(q.replace(/[$,]/g, ""));
+    const isNum = !Number.isNaN(numQ) && numQ > 0;
+    return invoices
+      .filter((i) => {
+        const name = (i.recipient.name ?? i.recipient.email ?? "").toLowerCase();
+        if (name.includes(q)) return true;
+        if (isNum) {
+          const amt = Math.round(i.amount);
+          if (amt === Math.round(numQ)) return true;
+          if (String(amt).startsWith(String(Math.round(numQ)))) return true;
+        }
+        return false;
+      })
+      .slice(0, 6);
+  }, [query, invoices]);
+
   function pickInvoice(inv: MercuryInvoice) {
     setPickedInvoice(inv);
     setPicked(null);
@@ -460,13 +480,13 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
             </div>
           )}
           {/* Mercury invoices ("payment requests") */}
-          {invoices.length > 0 ? (
+          {matchedInvoices.length > 0 ? (
             <div className="flex flex-col gap-2">
               <h2 className="text-sm text-muted font-medium flex items-center gap-1.5">
                 <FileText size={14} /> Mercury invoices
               </h2>
               <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
-                {invoices.slice(0, 6).map((inv) => {
+                {matchedInvoices.map((inv) => {
                   const name = inv.recipient.name ?? inv.recipient.email ?? "Unknown";
                   const date = new Date(inv.updatedAt);
                   return (
