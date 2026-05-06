@@ -12,29 +12,17 @@ import { formatUSD } from "@/lib/money";
 type Seller = { id: string; name: string };
 type Bank = { id: string; label: string; acceptsZelle: boolean; acceptsWire: boolean };
 
-type AppReceipt = {
-  id: string;
-  receiptNumber: string;
-  brand: string;
-  model: string;
-  totalCents: number;
-  createdAt: string;
-  customer: { name: string; email: string };
-};
-
 type FeedItem =
   | { kind: "money_in"; sortKey: number; tx: MercuryTx }
   | { kind: "money_out"; sortKey: number; tx: MercuryTx }
-  | { kind: "invoice_out"; sortKey: number; inv: MercuryInvoice }
-  | { kind: "receipt"; sortKey: number; r: AppReceipt };
+  | { kind: "invoice_out"; sortKey: number; inv: MercuryInvoice };
 
 export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => void }) {
   const router = useRouter();
 
-  // Mercury data + app receipts
+  // Mercury data only (Joe: "this page is for Mercury only").
   const [txs, setTxs] = useState<MercuryTx[]>([]);
   const [invoices, setInvoices] = useState<MercuryInvoice[]>([]);
-  const [appReceipts, setAppReceipts] = useState<AppReceipt[]>([]);
   const [picked, setPicked] = useState<MercuryTx | null>(null);
   const [pickedInvoice, setPickedInvoice] = useState<MercuryInvoice | null>(null);
 
@@ -76,17 +64,15 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
 
   const refInputRef = useRef<HTMLInputElement>(null);
 
-  // Initial load: Mercury txs + invoices + app receipts + sellers + banks
+  // Initial load: Mercury txs + invoices + sellers + banks (no app receipts —
+  // home feed is Mercury-only)
   useEffect(() => {
     void (async () => {
-      const [tx, inv, rec, s, b] = await Promise.all([
+      const [tx, inv, s, b] = await Promise.all([
         fetch("/api/mercury/recent")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
         fetch("/api/mercury/invoices")
-          .then((r) => (r.ok ? r.json() : []))
-          .catch(() => []),
-        fetch("/api/receipts")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
         fetch("/api/sellers")
@@ -98,7 +84,6 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       ]);
       setTxs(Array.isArray(tx) ? tx : []);
       setInvoices(Array.isArray(inv) ? inv : []);
-      setAppReceipts(Array.isArray(rec) ? rec : []);
       setSellers(s);
       setBanks(b);
     })();
@@ -152,7 +137,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
     }
   }
 
-  // Build the unified feed — money in, money out, invoices out, receipts —
+  // Build the Mercury-only feed — money in, money out, invoices out —
   // sorted newest first, then filter by the search query.
   const feed = useMemo<FeedItem[]>(() => {
     const items: FeedItem[] = [];
@@ -164,13 +149,9 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       const sortKey = new Date(i.updatedAt).getTime();
       items.push({ kind: "invoice_out", sortKey, inv: i });
     }
-    for (const r of appReceipts) {
-      const sortKey = new Date(r.createdAt).getTime();
-      items.push({ kind: "receipt", sortKey, r });
-    }
     items.sort((a, b) => b.sortKey - a.sortKey);
     return items;
-  }, [txs, invoices, appReceipts]);
+  }, [txs, invoices]);
 
   const filteredFeed = useMemo<FeedItem[]>(() => {
     const q = query.trim().toLowerCase();
@@ -184,12 +165,9 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
         if (item.kind === "money_in" || item.kind === "money_out") {
           name = (item.tx.counterpartyName ?? item.tx.counterpartyNickname ?? "").toLowerCase();
           amount = Math.abs(item.tx.amount);
-        } else if (item.kind === "invoice_out") {
+        } else {
           name = (item.inv.recipient.name ?? item.inv.recipient.email ?? "").toLowerCase();
           amount = item.inv.amount;
-        } else {
-          name = (item.r.customer.name ?? "").toLowerCase();
-          amount = item.r.totalCents / 100;
         }
         if (name.includes(q)) return true;
         if (isNum) {
@@ -449,14 +427,11 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
                   key={
                     item.kind === "money_in" || item.kind === "money_out"
                       ? `tx-${item.tx.id}`
-                      : item.kind === "invoice_out"
-                        ? `inv-${item.inv.id}`
-                        : `r-${item.r.id}`
+                      : `inv-${item.inv.id}`
                   }
                   item={item}
                   onPickTx={pickTx}
                   onPickInvoice={pickInvoice}
-                  onOpenReceipt={(id) => router.push(`/history/${id}`)}
                 />
               ))}
             </ul>
@@ -671,12 +646,10 @@ function FeedRow({
   item,
   onPickTx,
   onPickInvoice,
-  onOpenReceipt,
 }: {
   item: FeedItem;
   onPickTx: (t: MercuryTx) => void;
   onPickInvoice: (i: MercuryInvoice) => void;
-  onOpenReceipt: (id: string) => void;
 }) {
   let label = "";
   let pillClass = "";
@@ -711,7 +684,7 @@ function FeedRow({
     meta = t.kind.toLowerCase().includes("wire") ? "Wire" : "Payment";
     amountClass = "text-muted";
     // not actionable for receipts — no onClick
-  } else if (item.kind === "invoice_out") {
+  } else {
     label = "Invoice out";
     pillClass = "bg-accent-soft text-accent-deep";
     const inv = item.inv;
@@ -720,15 +693,6 @@ function FeedRow({
     date = new Date(inv.updatedAt);
     meta = inv.status;
     onClick = () => onPickInvoice(inv);
-  } else {
-    label = "Receipt";
-    pillClass = "bg-gold-soft text-amber-700";
-    const r = item.r;
-    name = r.customer.name;
-    amount = r.totalCents / 100;
-    date = new Date(r.createdAt);
-    meta = `${r.brand} ${r.model}`.trim() || r.receiptNumber;
-    onClick = () => onOpenReceipt(r.id);
   }
 
   const dateStr = date.toLocaleDateString("en-US", {
