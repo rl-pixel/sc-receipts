@@ -17,6 +17,8 @@ type FeedItem =
   | { kind: "money_out"; sortKey: number; tx: MercuryTx }
   | { kind: "invoice_out"; sortKey: number; inv: MercuryInvoice };
 
+type FeedFilter = "money_in" | "invoice_out" | "money_out" | "all";
+
 export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => void }) {
   const router = useRouter();
 
@@ -26,8 +28,11 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
   const [picked, setPicked] = useState<MercuryTx | null>(null);
   const [pickedInvoice, setPickedInvoice] = useState<MercuryInvoice | null>(null);
 
-  // Search
+  // Search + which slice of the feed is showing. Default to "money_in" because
+  // that's what Joe almost always wants when he opens the page (a customer
+  // paid him → make a receipt).
   const [query, setQuery] = useState("");
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>("money_in");
 
   // Watch
   const [refNum, setRefNum] = useState("");
@@ -153,12 +158,24 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
     return items;
   }, [txs, invoices]);
 
+  const counts = useMemo(
+    () => ({
+      money_in: feed.filter((f) => f.kind === "money_in").length,
+      invoice_out: feed.filter((f) => f.kind === "invoice_out").length,
+      money_out: feed.filter((f) => f.kind === "money_out").length,
+      all: feed.length,
+    }),
+    [feed],
+  );
+
   const filteredFeed = useMemo<FeedItem[]>(() => {
+    const sliced =
+      feedFilter === "all" ? feed : feed.filter((i) => i.kind === feedFilter);
     const q = query.trim().toLowerCase();
-    if (!q) return feed.slice(0, 14);
+    if (!q) return sliced.slice(0, 14);
     const numQ = Number(q.replace(/[$,]/g, ""));
     const isNum = !Number.isNaN(numQ) && numQ > 0;
-    return feed
+    return sliced
       .filter((item) => {
         let name = "";
         let amount = 0;
@@ -178,7 +195,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
         return false;
       })
       .slice(0, 14);
-  }, [query, feed]);
+  }, [query, feed, feedFilter]);
 
   function pickInvoice(inv: MercuryInvoice) {
     setPickedInvoice(inv);
@@ -399,11 +416,53 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       {/* Step 1: pick a Mercury payment OR drop a screenshot */}
       {!hasSelection ? (
         <div className="flex flex-col gap-3">
+          {/* Filter chips — Money in is the default since that's what makes a
+              receipt. The chip count tells Joe at a glance how many of each
+              kind are sitting in the feed. */}
+          <div className="flex flex-wrap gap-2">
+            <FilterChip
+              active={feedFilter === "money_in"}
+              count={counts.money_in}
+              onClick={() => setFeedFilter("money_in")}
+              activeClass="bg-success-deep text-white"
+              idleClass="bg-success-soft text-success-deep hover:bg-success-soft/70"
+            >
+              Money in
+            </FilterChip>
+            <FilterChip
+              active={feedFilter === "invoice_out"}
+              count={counts.invoice_out}
+              onClick={() => setFeedFilter("invoice_out")}
+              activeClass="bg-accent text-white"
+              idleClass="bg-accent-soft text-accent-deep hover:bg-accent-soft/70"
+            >
+              Invoices out
+            </FilterChip>
+            <FilterChip
+              active={feedFilter === "money_out"}
+              count={counts.money_out}
+              onClick={() => setFeedFilter("money_out")}
+              activeClass="bg-ink text-white"
+              idleClass="bg-divider-soft text-muted hover:bg-divider"
+            >
+              Money out
+            </FilterChip>
+            <FilterChip
+              active={feedFilter === "all"}
+              count={counts.all}
+              onClick={() => setFeedFilter("all")}
+              activeClass="bg-ink text-white"
+              idleClass="bg-white border border-divider text-muted hover:border-ink/30"
+            >
+              All
+            </FilterChip>
+          </div>
+
           <label className="block">
             <div className="text-sm text-muted mb-2">
               {query.trim()
-                ? "Filtering recent payments"
-                : "Tap a recent payment, or type to filter"}
+                ? `Filtering ${filterLabel(feedFilter)}`
+                : `Recent ${filterLabel(feedFilter)} — tap one to start a receipt`}
             </div>
             <div className="relative">
               <Search
@@ -449,7 +508,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
             </div>
           ) : (
             <div className="text-sm text-muted bg-white border border-divider rounded-2xl px-4 py-5 text-center">
-              No recent activity.{" "}
+              No recent {filterLabel(feedFilter)} from Mercury.{" "}
               <button
                 type="button"
                 onClick={onSwitchToManual}
@@ -640,6 +699,48 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
 
     </div>
   );
+}
+
+function FilterChip({
+  active,
+  count,
+  onClick,
+  activeClass,
+  idleClass,
+  children,
+}: {
+  active: boolean;
+  count: number;
+  onClick: () => void;
+  activeClass: string;
+  idleClass: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${
+        active ? activeClass : idleClass
+      }`}
+    >
+      {children}
+      <span
+        className={`text-[10px] nums px-1.5 py-px rounded-full ${
+          active ? "bg-white/25" : "bg-white/60"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function filterLabel(f: FeedFilter): string {
+  if (f === "money_in") return "money in";
+  if (f === "money_out") return "money out";
+  if (f === "invoice_out") return "invoices out";
+  return "Mercury activity";
 }
 
 function FeedRow({
