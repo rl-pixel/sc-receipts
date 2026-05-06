@@ -22,7 +22,6 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
 
   // Search
   const [query, setQuery] = useState("");
-  const [focused, setFocused] = useState(false);
 
   // Watch
   const [refNum, setRefNum] = useState("");
@@ -94,7 +93,6 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
   function pickTx(tx: MercuryTx) {
     setPicked(tx);
     setQuery("");
-    setFocused(false);
     // Fetch detail for enrichment (best-effort)
     void (async () => {
       try {
@@ -259,10 +257,12 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
     <div className="flex flex-col gap-6">
       {/* Step 1: pick a Mercury payment */}
       {!picked ? (
-        <div>
+        <div className="flex flex-col gap-3">
           <label className="block">
             <div className="text-sm text-muted mb-2">
-              Find the payment — type the amount or the customer's name
+              {query.trim()
+                ? "Filtering recent payments"
+                : "Tap a recent payment, or type to filter"}
             </div>
             <div className="relative">
               <Search
@@ -274,15 +274,13 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
                 placeholder="$4,500   or   Brian"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setTimeout(() => setFocused(false), 150)}
-                className="w-full bg-white border border-divider rounded-2xl pl-12 pr-4 py-4 text-lg text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition-colors"
+                className="w-full bg-white border border-divider rounded-2xl pl-12 pr-4 py-3.5 text-base text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition-colors"
               />
             </div>
           </label>
 
-          {focused && matches.length > 0 ? (
-            <ul className="mt-2 bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden shadow-sm">
+          {matches.length > 0 ? (
+            <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
               {matches.map((t) => {
                 const name =
                   t.counterpartyName ?? t.counterpartyNickname ?? "Unknown";
@@ -291,9 +289,8 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
                   <li key={t.id}>
                     <button
                       type="button"
-                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => pickTx(t)}
-                      className="w-full grid grid-cols-[1fr_auto] gap-3 items-center px-4 py-3 text-left hover:bg-divider-soft transition-colors"
+                      className="w-full grid grid-cols-[1fr_auto] gap-3 items-center px-4 py-3 text-left hover:bg-divider-soft active:bg-accent-soft transition-colors"
                     >
                       <div className="min-w-0">
                         <div className="text-base text-ink truncate">{name}</div>
@@ -321,13 +318,31 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
                 );
               })}
             </ul>
-          ) : null}
-
-          {focused && query.trim() && matches.length === 0 ? (
-            <div className="mt-2 text-sm text-muted bg-white border border-divider rounded-2xl px-4 py-3">
-              No Mercury match. <button type="button" onClick={onSwitchToManual} className="text-accent underline-offset-2 hover:underline">Type it in instead</button>.
+          ) : query.trim() ? (
+            <div className="text-sm text-muted bg-white border border-divider rounded-2xl px-4 py-3">
+              Nothing matches in Mercury.{" "}
+              <button
+                type="button"
+                onClick={onSwitchToManual}
+                className="text-accent underline-offset-2 hover:underline"
+              >
+                Type it in instead
+              </button>
+              .
             </div>
-          ) : null}
+          ) : (
+            <div className="text-sm text-muted bg-white border border-divider rounded-2xl px-4 py-5 text-center">
+              No recent Mercury payments yet.{" "}
+              <button
+                type="button"
+                onClick={onSwitchToManual}
+                className="text-accent underline-offset-2 hover:underline"
+              >
+                Type it in instead
+              </button>
+              .
+            </div>
+          )}
         </div>
       ) : (
         <PaymentSummaryCard tx={picked} address={enrichedAddress} onChange={clearPick} />
