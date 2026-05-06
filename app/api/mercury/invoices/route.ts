@@ -4,32 +4,73 @@ export const runtime = "nodejs";
 
 const BASE = "https://api.mercury.com/api/v1";
 
+// Mercury calls invoices "payment requests" in their API.
+type RawPaymentRequest = {
+  paymentRequestData: {
+    id: string;
+    createdAt: string;
+    updatedAt: string;
+    dueDate: string | null;
+    expiresAt: string | null;
+    amount: number;
+    status: string; // "Sent" | "Paid" | "Cancelled" | "Expired" | etc.
+    notes?: string | null;
+    organizationName?: string;
+    addressesToEmail?: string[];
+    publicSlug?: string;
+  };
+  recipientData: Array<{
+    id: string;
+    email: string | null;
+    name: string | null;
+  }>;
+};
+
+export type MercuryInvoice = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  dueDate: string | null;
+  amount: number;
+  status: string;
+  notes: string | null;
+  recipient: { name: string | null; email: string | null };
+};
+
 export async function GET() {
   const token = process.env.MERCURY_API_KEY;
   if (!token) {
-    return NextResponse.json({ error: "MERCURY_API_KEY not set" }, { status: 503 });
+    return NextResponse.json([], { status: 200 });
   }
-  const auth = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-
-  // Try the documented invoice endpoints. Mercury's public API surface for
-  // invoicing isn't fully documented — try a few likely paths and return
-  // whatever responds. Empty array if nothing works (graceful degrade).
-  const candidates = [`${BASE}/invoices`, `${BASE}/invoice`];
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, { headers: auth, cache: "no-store" });
-      if (!res.ok) continue;
-      const body = await res.json();
-      // Mercury commonly wraps lists in { invoices: [...] } or similar
-      const list =
-        Array.isArray(body) ? body :
-        Array.isArray(body.invoices) ? body.invoices :
-        Array.isArray(body.data) ? body.data :
-        [];
-      return NextResponse.json(list);
-    } catch {
-      // continue
-    }
+  try {
+    const res = await fetch(`${BASE}/payment-requests`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) return NextResponse.json([]);
+    const body = (await res.json()) as { paymentRequests?: RawPaymentRequest[] };
+    const list = body.paymentRequests ?? [];
+    const cleaned: MercuryInvoice[] = list
+      .filter((p) => p.paymentRequestData.status !== "Cancelled")
+      .map((p) => ({
+        id: p.paymentRequestData.id,
+        createdAt: p.paymentRequestData.createdAt,
+        updatedAt: p.paymentRequestData.updatedAt,
+        dueDate: p.paymentRequestData.dueDate,
+        amount: p.paymentRequestData.amount,
+        status: p.paymentRequestData.status,
+        notes: p.paymentRequestData.notes ?? null,
+        recipient: {
+          name: p.recipientData?.[0]?.name ?? null,
+          email: p.recipientData?.[0]?.email ?? null,
+        },
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+    return NextResponse.json(cleaned);
+  } catch {
+    return NextResponse.json([]);
   }
-  return NextResponse.json([]);
 }

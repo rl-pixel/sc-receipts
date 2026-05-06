@@ -1,32 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
-import { Search, X, Pencil, Sparkles, Paperclip, ReceiptText } from "lucide-react";
+import { Search, X, Pencil, Sparkles, Paperclip, FileText } from "lucide-react";
 import type { MercuryTx } from "@/components/MercuryRecent";
+import type { MercuryInvoice } from "@/app/api/mercury/invoices/route";
 import { PillToggle } from "@/components/PillToggle";
 import { formatUSD } from "@/lib/money";
 
 type Seller = { id: string; name: string };
 type Bank = { id: string; label: string; acceptsZelle: boolean; acceptsWire: boolean };
-type RecentReceipt = {
-  id: string;
-  receiptNumber: string;
-  totalCents: number;
-  brand: string;
-  model: string;
-  createdAt: string;
-  customer: { name: string; email: string };
-};
 
 export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => void }) {
   const router = useRouter();
 
   // Mercury data
   const [txs, setTxs] = useState<MercuryTx[]>([]);
+  const [invoices, setInvoices] = useState<MercuryInvoice[]>([]);
   const [picked, setPicked] = useState<MercuryTx | null>(null);
+  const [pickedInvoice, setPickedInvoice] = useState<MercuryInvoice | null>(null);
 
   // Search
   const [query, setQuery] = useState("");
@@ -43,10 +36,9 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
   const [enrichedAddress, setEnrichedAddress] = useState("");
   const [enrichedConfirmation, setEnrichedConfirmation] = useState("");
 
-  // Sellers + banks + recent receipts
+  // Sellers + banks
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
-  const [recentReceipts, setRecentReceipts] = useState<RecentReceipt[]>([]);
   const [soldBy, setSoldBy] = useState("Joe");
 
   // Submit
@@ -67,11 +59,14 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
 
   const refInputRef = useRef<HTMLInputElement>(null);
 
-  // Initial load: Mercury, sellers, banks, recent receipts
+  // Initial load: Mercury txs + invoices + sellers + banks
   useEffect(() => {
     void (async () => {
-      const [tx, s, b, r] = await Promise.all([
+      const [tx, inv, s, b] = await Promise.all([
         fetch("/api/mercury/recent")
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => []),
+        fetch("/api/mercury/invoices")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
         fetch("/api/sellers")
@@ -80,14 +75,11 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
         fetch("/api/banks")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
-        fetch("/api/receipts")
-          .then((r) => (r.ok ? r.json() : []))
-          .catch(() => []),
       ]);
       setTxs(Array.isArray(tx) ? tx : []);
+      setInvoices(Array.isArray(inv) ? inv : []);
       setSellers(s);
       setBanks(b);
-      setRecentReceipts(Array.isArray(r) ? r.slice(0, 5) : []);
     })();
   }, []);
 
@@ -163,8 +155,18 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       .slice(0, 6);
   }, [query, txs]);
 
+  function pickInvoice(inv: MercuryInvoice) {
+    setPickedInvoice(inv);
+    setPicked(null);
+    setExtractedFromShot(null);
+    setExtractMsg(null);
+    setQuery("");
+    setTimeout(() => refInputRef.current?.focus(), 50);
+  }
+
   function pickTx(tx: MercuryTx) {
     setPicked(tx);
+    setPickedInvoice(null);
     setExtractedFromShot(null);
     setExtractMsg(null);
     setQuery("");
@@ -211,6 +213,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
 
   function clearPick() {
     setPicked(null);
+    setPickedInvoice(null);
     setExtractedFromShot(null);
     setExtractMsg(null);
     setEnrichedAddress("");
@@ -222,7 +225,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
     setWatchSummary(null);
   }
 
-  const hasSelection = !!picked || !!extractedFromShot;
+  const hasSelection = !!picked || !!pickedInvoice || !!extractedFromShot;
 
   async function lookupWatch() {
     const r = refNum.trim();
@@ -275,6 +278,13 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
           : "";
       confirmation = enrichedConfirmation;
       customerAddress = enrichedAddress;
+    } else if (pickedInvoice) {
+      senderName = pickedInvoice.recipient.name ?? "";
+      customerEmail = pickedInvoice.recipient.email ?? "";
+      amountUsd = String(pickedInvoice.amount);
+      dateStr = pickedInvoice.updatedAt.slice(0, 10);
+      method = "Other";
+      methodOther = "Mercury invoice";
     } else if (extractedFromShot) {
       senderName = extractedFromShot.customerName;
       amountUsd = String(extractedFromShot.amount);
@@ -449,6 +459,56 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
               .
             </div>
           )}
+          {/* Mercury invoices ("payment requests") */}
+          {invoices.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <h2 className="text-sm text-muted font-medium flex items-center gap-1.5">
+                <FileText size={14} /> Mercury invoices
+              </h2>
+              <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
+                {invoices.slice(0, 6).map((inv) => {
+                  const name = inv.recipient.name ?? inv.recipient.email ?? "Unknown";
+                  const date = new Date(inv.updatedAt);
+                  return (
+                    <li key={inv.id}>
+                      <button
+                        type="button"
+                        onClick={() => pickInvoice(inv)}
+                        className="w-full grid grid-cols-[1fr_auto] gap-3 items-center px-4 py-3 text-left hover:bg-divider-soft active:bg-accent-soft transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-base text-ink truncate">{name}</div>
+                          <div className="text-xs text-muted flex items-center gap-1.5">
+                            <span>
+                              {date.toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </span>
+                            <span>·</span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded ${
+                                inv.status === "Paid"
+                                  ? "bg-success-soft text-success-deep"
+                                  : "bg-divider-soft text-muted"
+                              }`}
+                            >
+                              {inv.status}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-base font-semibold text-ink nums shrink-0">
+                          {formatUSD(Math.round(inv.amount * 100))}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+
           {/* Screenshot fallback for Chase Zelle / Mercury invoices / anything else */}
           <div>
             <label
@@ -497,6 +557,8 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
         </div>
       ) : picked ? (
         <PaymentSummaryCard tx={picked} address={enrichedAddress} onChange={clearPick} />
+      ) : pickedInvoice ? (
+        <InvoiceSummaryCard inv={pickedInvoice} onChange={clearPick} />
       ) : extractedFromShot ? (
         <ExtractedSummaryCard
           customerName={extractedFromShot.customerName}
@@ -598,7 +660,14 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
         >
           {submitting
             ? "Saving…"
-            : `Save receipt for ${formatUSD(Math.round((picked?.amount ?? extractedFromShot?.amount ?? 0) * 100))} →`}
+            : `Save receipt for ${formatUSD(
+                Math.round(
+                  (picked?.amount ??
+                    pickedInvoice?.amount ??
+                    extractedFromShot?.amount ??
+                    0) * 100,
+                ),
+              )} →`}
         </button>
       ) : null}
 
@@ -617,43 +686,49 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
         <Pencil size={13} /> Type it in instead
       </button>
 
-      {/* Recent receipts — only when no selection in progress */}
-      {!hasSelection && recentReceipts.length > 0 ? (
-        <div className="mt-2">
-          <div className="flex items-baseline justify-between mb-2">
-            <h2 className="text-sm text-muted font-medium flex items-center gap-1.5">
-              <ReceiptText size={14} /> Recent receipts
-            </h2>
-            <Link href="/history" className="text-sm text-accent hover:text-accent-deep">
-              View all →
-            </Link>
+    </div>
+  );
+}
+
+function InvoiceSummaryCard({
+  inv,
+  onChange,
+}: {
+  inv: MercuryInvoice;
+  onChange: () => void;
+}) {
+  const name = inv.recipient.name ?? inv.recipient.email ?? "Unknown";
+  const date = new Date(inv.updatedAt);
+  return (
+    <div className="bg-gradient-to-br from-accent to-accent-deep text-white rounded-2xl p-5 shadow-[0_8px_24px_-8px_rgba(0,82,255,0.4)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs opacity-80 flex items-center gap-1.5">
+            <FileText size={11} />
+            Mercury invoice ·{" "}
+            {date.toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}{" "}
+            · {inv.status}
           </div>
-          <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
-            {recentReceipts.map((r) => (
-              <li key={r.id}>
-                <Link
-                  href={`/history/${r.id}`}
-                  className="grid grid-cols-[1fr_auto] gap-3 items-center px-4 py-3 hover:bg-divider-soft transition-colors"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm text-ink truncate">{r.customer.name}</div>
-                    <div className="text-xs text-muted truncate">
-                      {r.brand} {r.model} ·{" "}
-                      {new Date(r.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </div>
-                  </div>
-                  <div className="text-sm font-semibold text-ink nums shrink-0">
-                    {formatUSD(r.totalCents)}
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="text-2xl font-bold tracking-tight nums mt-1">
+            {formatUSD(Math.round(inv.amount * 100))}
+          </div>
+          <div className="text-base mt-1 opacity-95">{name}</div>
+          {inv.recipient.email && inv.recipient.name ? (
+            <div className="text-xs opacity-80 mt-0.5">{inv.recipient.email}</div>
+          ) : null}
         </div>
-      ) : null}
+        <button
+          type="button"
+          onClick={onChange}
+          className="shrink-0 text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full flex items-center gap-1 transition-colors"
+        >
+          <X size={12} /> Change
+        </button>
+      </div>
     </div>
   );
 }
