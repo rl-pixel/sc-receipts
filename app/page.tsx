@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
+import { MercuryRecent, type MercuryTx } from "@/components/MercuryRecent";
 import { Textarea, LineInput } from "@/components/Field";
 import { PillToggle } from "@/components/PillToggle";
 import {
@@ -195,6 +196,35 @@ export default function NewReceiptPage() {
     }
   }
 
+  // Mercury: pick a recent transaction → prefill form
+  const [pickedMercuryId, setPickedMercuryId] = useState<string | null>(null);
+  function applyMercuryTx(tx: MercuryTx) {
+    setPickedMercuryId(tx.id);
+    setForm((f) => {
+      const next = { ...f, customer: { ...f.customer }, payment: { ...f.payment } };
+      const senderName = tx.counterpartyName ?? tx.counterpartyNickname ?? "";
+      if (senderName) {
+        next.customer.name = senderName;
+        next.payment.sender = senderName;
+      }
+      next.payment.amountUsd = String(tx.amount);
+      const dateStr = (tx.postedAt ?? tx.createdAt).slice(0, 10);
+      next.payment.date = dateStr;
+      // Map Mercury "kind" to our payment method
+      if (tx.kind.toLowerCase().includes("wire")) {
+        next.payment.method = "Wire";
+      } else if (tx.kind === "checkDeposit") {
+        next.payment.method = "Other";
+        next.payment.methodOther = "Check";
+      } else {
+        next.payment.method = "Other";
+        next.payment.methodOther = "ACH";
+      }
+      return next;
+    });
+    setExtractMsg(`Loaded from Mercury — ${tx.accountName}. Add the watch + price.`);
+  }
+
   // AI: lookup watch by reference number
   const [looking, setLooking] = useState(false);
   async function lookupWatch() {
@@ -336,8 +366,10 @@ export default function NewReceiptPage() {
           New receipt
         </h1>
         <p className="text-sm text-muted mt-1">
-          Drop a Mercury invoice or payment screenshot — I'll fill in the customer + payment.
+          Tap a Mercury payment, drop a screenshot, or fill in below.
         </p>
+
+        <MercuryRecent onPick={applyMercuryTx} selectedId={pickedMercuryId} />
 
         <div className="mt-5">
           <label
