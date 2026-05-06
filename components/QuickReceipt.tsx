@@ -169,34 +169,39 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
     [feed],
   );
 
+  // Full filtered list (no slice). Render-time slicing happens below so the
+  // "Show all" toggle can reveal everything when Joe wants to scan more.
   const filteredFeed = useMemo<FeedItem[]>(() => {
     const sliced =
       feedFilter === "all" ? feed : feed.filter((i) => i.kind === feedFilter);
     const q = query.trim().toLowerCase();
-    if (!q) return sliced.slice(0, 14);
+    if (!q) return sliced;
     const numQ = Number(q.replace(/[$,]/g, ""));
     const isNum = !Number.isNaN(numQ) && numQ > 0;
-    return sliced
-      .filter((item) => {
-        let name = "";
-        let amount = 0;
-        if (item.kind === "money_in" || item.kind === "money_out") {
-          name = (item.tx.counterpartyName ?? item.tx.counterpartyNickname ?? "").toLowerCase();
-          amount = Math.abs(item.tx.amount);
-        } else {
-          name = (item.inv.recipient.name ?? item.inv.recipient.email ?? "").toLowerCase();
-          amount = item.inv.amount;
-        }
-        if (name.includes(q)) return true;
-        if (isNum) {
-          const amt = Math.round(amount);
-          if (amt === Math.round(numQ)) return true;
-          if (String(amt).startsWith(String(Math.round(numQ)))) return true;
-        }
-        return false;
-      })
-      .slice(0, 14);
+    return sliced.filter((item) => {
+      let name = "";
+      let amount = 0;
+      if (item.kind === "money_in" || item.kind === "money_out") {
+        name = (item.tx.counterpartyName ?? item.tx.counterpartyNickname ?? "").toLowerCase();
+        amount = Math.abs(item.tx.amount);
+      } else {
+        name = (item.inv.recipient.name ?? item.inv.recipient.email ?? "").toLowerCase();
+        amount = item.inv.amount;
+      }
+      if (name.includes(q)) return true;
+      if (isNum) {
+        const amt = Math.round(amount);
+        if (amt === Math.round(numQ)) return true;
+        if (String(amt).startsWith(String(Math.round(numQ)))) return true;
+      }
+      return false;
+    });
   }, [query, feed, feedFilter]);
+
+  // Default to 50 visible rows; "Show all" expands to the full list.
+  const [showAll, setShowAll] = useState(false);
+  const visibleFeed = showAll ? filteredFeed : filteredFeed.slice(0, 50);
+  const hiddenCount = filteredFeed.length - visibleFeed.length;
 
   function pickInvoice(inv: MercuryInvoice) {
     setPickedInvoice(inv);
@@ -495,21 +500,32 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
             />
           </div>
 
-          {filteredFeed.length > 0 ? (
-            <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
-              {filteredFeed.map((item) => (
-                <FeedRow
-                  key={
-                    item.kind === "money_in" || item.kind === "money_out"
-                      ? `tx-${item.tx.id}`
-                      : `inv-${item.inv.id}`
-                  }
-                  item={item}
-                  onPickTx={pickTx}
-                  onPickInvoice={pickInvoice}
-                />
-              ))}
-            </ul>
+          {visibleFeed.length > 0 ? (
+            <>
+              <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
+                {visibleFeed.map((item) => (
+                  <FeedRow
+                    key={
+                      item.kind === "money_in" || item.kind === "money_out"
+                        ? `tx-${item.tx.id}`
+                        : `inv-${item.inv.id}`
+                    }
+                    item={item}
+                    onPickTx={pickTx}
+                    onPickInvoice={pickInvoice}
+                  />
+                ))}
+              </ul>
+              {hiddenCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAll(true)}
+                  className="self-center text-sm text-accent hover:text-accent-deep transition-colors"
+                >
+                  Show all {filteredFeed.length}
+                </button>
+              ) : null}
+            </>
           ) : (
             <div className="text-sm text-muted text-center py-2">
               {query.trim() ? "Nothing matches." : `No recent ${filterLabel(feedFilter)}.`}{" "}

@@ -61,17 +61,23 @@ export async function GET() {
 
     for (const acc of accounts) {
       try {
+        // Mercury's `limit` caps at 500. Pull the full window — we filter
+        // and sort below. Joe expects to see what he sees in Mercury's
+        // own "All money in" view, so we need to ask for everything.
         const txRes = await fetch(
-          `${BASE}/account/${acc.id}/transactions?limit=25`,
+          `${BASE}/account/${acc.id}/transactions?limit=500`,
           { headers: auth, cache: "no-store" },
         );
         if (!txRes.ok) continue;
         const txBody = await txRes.json();
         const transactions: MercuryTransaction[] = txBody.transactions ?? [];
         for (const t of transactions) {
+          // Include sent + pending. Skip cancelled/failed. Mercury
+          // returns one record per transaction that updates as it
+          // clears, so this won't double-count.
           if (
             t.amount !== 0 &&
-            t.status === "sent" &&
+            (t.status === "sent" || t.status === "pending") &&
             RELEVANT_KINDS.has(t.kind)
           ) {
             collected.push({
@@ -92,7 +98,8 @@ export async function GET() {
       return tb - ta;
     });
 
-    return NextResponse.json(collected.slice(0, 60));
+    // No server-side cap — let the client decide how many to render.
+    return NextResponse.json(collected);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "unknown" },
