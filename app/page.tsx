@@ -411,23 +411,13 @@ export default function NewReceiptPage() {
   return (
     <div className="min-h-full pb-44 sm:pb-32">
       <TopNav active="new" />
-      <main className="max-w-2xl mx-auto px-4 pt-8">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
-          New receipt
-        </h1>
-
+      <main className="max-w-2xl mx-auto px-4 pt-6">
         {mode === "quick" ? (
-          <div className="mt-7">
-            <QuickReceipt onSwitchToManual={() => setMode("manual")} />
-          </div>
+          <QuickReceipt onSwitchToManual={() => setMode("manual")} />
         ) : null}
 
         {mode === "manual" ? (
         <>
-        <p className="text-sm text-muted mt-1">
-          Tap a Mercury payment, drop a screenshot, or fill in below.
-        </p>
-
         <MercuryRecent onPick={applyMercuryTx} selectedId={pickedMercuryId} />
 
         <div className="mt-5">

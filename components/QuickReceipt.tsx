@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
-import { Search, X, Pencil, Sparkles, Paperclip, FileText } from "lucide-react";
+import { Search, X, Sparkles, Paperclip, FileText } from "lucide-react";
 import type { MercuryTx } from "@/components/MercuryRecent";
 import type { MercuryInvoice } from "@/app/api/mercury/invoices/route";
 import { PillToggle } from "@/components/PillToggle";
@@ -68,6 +68,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
   } | null>(null);
 
   const refInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initial load: Mercury txs + invoices + sellers + banks (no app receipts —
   // home feed is Mercury-only)
@@ -458,26 +459,41 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
             </FilterChip>
           </div>
 
-          <label className="block">
-            <div className="text-sm text-muted mb-2">
-              {query.trim()
-                ? `Filtering ${filterLabel(feedFilter)}`
-                : `Recent ${filterLabel(feedFilter)} — tap one to start a receipt`}
-            </div>
-            <div className="relative">
-              <Search
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-soft"
-              />
-              <input
-                type="text"
-                placeholder="$4,500   or   Brian"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full bg-white border border-divider rounded-2xl pl-12 pr-4 py-3.5 text-base text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition-colors"
-              />
-            </div>
-          </label>
+          {/* Search + inline screenshot upload (paperclip on the right). */}
+          <div className="relative">
+            <Search
+              size={18}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-soft"
+            />
+            <input
+              type="text"
+              placeholder="Search name or amount"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full bg-white border border-divider rounded-2xl pl-12 pr-12 py-3.5 text-base text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition-colors"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={extracting}
+              aria-label="Upload payment screenshot"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl text-muted hover:text-accent hover:bg-accent-soft transition-colors disabled:opacity-50"
+            >
+              <Paperclip size={18} className={extracting ? "text-accent" : ""} />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleScreenshot(f);
+                e.target.value = "";
+              }}
+              disabled={extracting}
+            />
+          </div>
 
           {filteredFeed.length > 0 ? (
             <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
@@ -494,77 +510,22 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
                 />
               ))}
             </ul>
-          ) : query.trim() ? (
-            <div className="text-sm text-muted bg-white border border-divider rounded-2xl px-4 py-3">
-              Nothing matches.{" "}
-              <button
-                type="button"
-                onClick={onSwitchToManual}
-                className="text-accent underline-offset-2 hover:underline"
-              >
-                Type it in instead
-              </button>
-              .
-            </div>
           ) : (
-            <div className="text-sm text-muted bg-white border border-divider rounded-2xl px-4 py-5 text-center">
-              No recent {filterLabel(feedFilter)} from Mercury.{" "}
+            <div className="text-sm text-muted text-center py-2">
+              {query.trim() ? "Nothing matches." : `No recent ${filterLabel(feedFilter)}.`}{" "}
               <button
                 type="button"
                 onClick={onSwitchToManual}
                 className="text-accent underline-offset-2 hover:underline"
               >
-                Type it in instead
+                Type it in
               </button>
-              .
             </div>
           )}
 
-          {/* Screenshot fallback for Chase Zelle / Mercury invoices / anything else */}
-          <div>
-            <label
-              className={`block cursor-pointer rounded-2xl border-2 border-dashed px-4 py-4 transition-colors ${
-                extracting
-                  ? "border-accent bg-accent-soft"
-                  : "border-divider hover:border-accent hover:bg-accent-soft/40"
-              }`}
-            >
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleScreenshot(f);
-                  e.target.value = "";
-                }}
-                disabled={extracting}
-              />
-              <div className="flex items-center gap-3">
-                <Paperclip
-                  size={18}
-                  className={extracting ? "text-accent" : "text-muted"}
-                />
-                <div className="flex-1">
-                  {extracting ? (
-                    <div className="text-sm text-accent font-medium">Reading…</div>
-                  ) : (
-                    <>
-                      <div className="text-sm text-ink font-medium">
-                        Or drop a screenshot
-                      </div>
-                      <div className="text-xs text-muted">
-                        Mercury invoice, Chase Zelle, wire confirmation — Gemini reads it.
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </label>
-            {extractMsg ? (
-              <p className="mt-2 text-xs text-muted">{extractMsg}</p>
-            ) : null}
-          </div>
+          {extractMsg ? (
+            <p className="text-xs text-muted text-center">{extractMsg}</p>
+          ) : null}
         </div>
       ) : picked ? (
         <PaymentSummaryCard tx={picked} address={enrichedAddress} onChange={clearPick} />
@@ -687,16 +648,6 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
           {error}
         </div>
       ) : null}
-
-      {/* Manual fallback */}
-      <button
-        type="button"
-        onClick={onSwitchToManual}
-        className="self-center text-sm text-muted hover:text-ink flex items-center gap-1.5"
-      >
-        <Pencil size={13} /> Type it in instead
-      </button>
-
     </div>
   );
 }
