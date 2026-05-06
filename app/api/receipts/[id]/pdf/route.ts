@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { renderToStream } from "@react-pdf/renderer";
 import { db } from "@/lib/db";
 import { ReceiptPdf } from "@/components/ReceiptPdf";
@@ -70,7 +71,9 @@ export async function GET(
     },
   };
 
-  const stream = await renderToStream(<ReceiptPdf data={data} />);
+  const stream = await renderToStream(
+    createElement(ReceiptPdf, { data }) as Parameters<typeof renderToStream>[0],
+  );
   return new Response(stream as unknown as ReadableStream, {
     headers: {
       "Content-Type": "application/pdf",

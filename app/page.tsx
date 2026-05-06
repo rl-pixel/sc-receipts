@@ -134,6 +134,94 @@ export default function NewReceiptPage() {
     });
   }, []);
 
+  // AI: extract payment + customer from Mercury PDF/screenshot
+  const [extracting, setExtracting] = useState(false);
+  const [extractMsg, setExtractMsg] = useState<string | null>(null);
+  async function extractFromFile(file: File) {
+    setExtracting(true);
+    setExtractMsg(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(new Error("read failed"));
+        r.readAsDataURL(file);
+      });
+      const dataBase64 = dataUrl.split(",")[1] ?? "";
+      const res = await fetch("/api/extract-payment", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mimeType: file.type || "application/pdf", dataBase64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Extraction failed");
+
+      // Apply extracted fields
+      setForm((f) => {
+        const next = { ...f, customer: { ...f.customer }, payment: { ...f.payment } };
+        if (data.customer_name) next.customer.name = data.customer_name;
+        if (data.customer_email) next.customer.email = data.customer_email;
+        if (data.customer_phone) next.customer.phone = data.customer_phone;
+        if (data.customer_address) {
+          next.customer.addressLines = data.customer_address;
+        }
+        if (data.amount_usd != null) next.payment.amountUsd = String(data.amount_usd);
+        if (data.date_iso) next.payment.date = data.date_iso;
+        if (data.confirmation_number) next.payment.confirmation = data.confirmation_number;
+        if (data.sender_name) next.payment.sender = data.sender_name;
+        const m = data.payment_method;
+        if (m === "Zelle" || m === "Wire") next.payment.method = m;
+        else if (m === "ACH" || m === "Other") {
+          next.payment.method = "Other";
+          next.payment.methodOther = m === "ACH" ? "ACH" : "";
+        }
+        return next;
+      });
+      setReveals((r) => ({
+        ...r,
+        address: r.address || !!data.customer_address,
+        phone: r.phone || !!data.customer_phone,
+        confirmation: r.confirmation || !!data.confirmation_number,
+      }));
+      setExtractMsg(
+        data.confidence === "low"
+          ? "Got it — but the screenshot was hard to read. Double-check the fields."
+          : "Filled it in. Add the watch + price and you're done.",
+      );
+    } catch (e) {
+      setExtractMsg(e instanceof Error ? e.message : "Couldn't read that file.");
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  // AI: lookup watch by reference number
+  const [looking, setLooking] = useState(false);
+  async function lookupWatch() {
+    const ref = form.watch.referenceNumber.trim();
+    if (!ref || looking) return;
+    setLooking(true);
+    try {
+      const res = await fetch("/api/lookup-watch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ref }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setForm((f) => {
+        const next = { ...f, watch: { ...f.watch } };
+        if (data.brand) next.watch.brand = data.brand;
+        if (data.model) next.watch.model = data.model;
+        if (data.year_introduced) next.watch.year = String(data.year_introduced);
+        return next;
+      });
+      if (data.year_introduced) setReveals((r) => ({ ...r, year: true }));
+    } finally {
+      setLooking(false);
+    }
+  }
+
   const subtotalCents = dollarsToCents(form.payment.amountUsd);
   const shippingCents = dollarsToCents(form.totals.shippingUsd);
   const taxCents = dollarsToCents(form.totals.taxUsd);
@@ -247,7 +335,44 @@ export default function NewReceiptPage() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
           New receipt
         </h1>
-        <p className="text-sm text-muted mt-1">Fill these four.</p>
+        <p className="text-sm text-muted mt-1">
+          Drop a Mercury invoice or payment screenshot — I'll fill in the customer + payment.
+        </p>
+
+        <div className="mt-5">
+          <label
+            className={`block cursor-pointer rounded-2xl border-2 border-dashed px-5 py-5 text-center transition-colors ${
+              extracting
+                ? "border-accent bg-accent-soft"
+                : "border-divider hover:border-accent hover:bg-accent-soft/50"
+            }`}
+          >
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) extractFromFile(f);
+                e.target.value = "";
+              }}
+              disabled={extracting}
+            />
+            {extracting ? (
+              <div className="text-sm text-accent font-medium">Reading… one sec</div>
+            ) : (
+              <>
+                <div className="text-base text-ink font-medium">📎 Drop or pick a file</div>
+                <div className="text-xs text-muted mt-1">
+                  Mercury invoice, wire confirmation, Zelle screenshot — any of them.
+                </div>
+              </>
+            )}
+          </label>
+          {extractMsg ? (
+            <p className="mt-2 text-sm text-success">{extractMsg}</p>
+          ) : null}
+        </div>
 
         <>
         <div className="mt-7 card-lift divide-y divide-divider">
@@ -321,6 +446,25 @@ export default function NewReceiptPage() {
           </Sec>
 
           <Sec title="Watch" done={watchDone}>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <LineInput
+                  placeholder="Reference # (e.g. 126610LN)"
+                  value={form.watch.referenceNumber}
+                  onChange={(e) =>
+                    patch("watch", { referenceNumber: e.target.value })
+                  }
+                />
+              </div>
+              <button
+                type="button"
+                onClick={lookupWatch}
+                disabled={looking || !form.watch.referenceNumber.trim()}
+                className="bg-accent hover:bg-accent-deep text-white text-sm px-4 py-2 rounded-full disabled:opacity-40 transition-colors shrink-0"
+              >
+                {looking ? "…" : "✨ Look up"}
+              </button>
+            </div>
             <Row2>
               <LineInput
                 placeholder="Brand"
@@ -361,13 +505,6 @@ export default function NewReceiptPage() {
                 ariaLabel="Condition"
               />
             </div>
-            {reveals.ref ? (
-              <LineInput
-                placeholder="Reference #"
-                value={form.watch.referenceNumber}
-                onChange={(e) => patch("watch", { referenceNumber: e.target.value })}
-              />
-            ) : null}
             {reveals.year ? (
               <LineInput
                 inputMode="numeric"
@@ -384,7 +521,6 @@ export default function NewReceiptPage() {
               />
             ) : null}
             <RevealRow>
-              {!reveals.ref && <RevealChip onClick={() => reveal("ref")}>Reference #</RevealChip>}
               {!reveals.year && <RevealChip onClick={() => reveal("year")}>Year</RevealChip>}
               {!reveals.serial && <RevealChip onClick={() => reveal("serial")}>Serial</RevealChip>}
             </RevealRow>
