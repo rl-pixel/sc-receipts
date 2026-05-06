@@ -1,17 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
-import { Search, X, Pencil, Sparkles } from "lucide-react";
+import { Search, X, Pencil, Sparkles, Paperclip, ReceiptText } from "lucide-react";
 import type { MercuryTx } from "@/components/MercuryRecent";
 import { PillToggle } from "@/components/PillToggle";
-import { LineInput } from "@/components/Field";
-import { formatUSD, dollarsToCents } from "@/lib/money";
-import { copy } from "@/lib/copy";
+import { formatUSD } from "@/lib/money";
 
 type Seller = { id: string; name: string };
 type Bank = { id: string; label: string; acceptsZelle: boolean; acceptsWire: boolean };
+type RecentReceipt = {
+  id: string;
+  receiptNumber: string;
+  totalCents: number;
+  brand: string;
+  model: string;
+  createdAt: string;
+  customer: { name: string; email: string };
+};
 
 export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => void }) {
   const router = useRouter();
@@ -35,21 +43,34 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
   const [enrichedAddress, setEnrichedAddress] = useState("");
   const [enrichedConfirmation, setEnrichedConfirmation] = useState("");
 
-  // Sellers + banks
+  // Sellers + banks + recent receipts
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [recentReceipts, setRecentReceipts] = useState<RecentReceipt[]>([]);
   const [soldBy, setSoldBy] = useState("Joe");
 
   // Submit
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Screenshot extraction (Gemini)
+  const [extracting, setExtracting] = useState(false);
+  const [extractMsg, setExtractMsg] = useState<string | null>(null);
+  const [extractedFromShot, setExtractedFromShot] = useState<{
+    customerName: string;
+    customerEmail?: string;
+    customerAddress?: string;
+    amount: number;
+    date?: string;
+    method?: string;
+  } | null>(null);
+
   const refInputRef = useRef<HTMLInputElement>(null);
 
-  // Initial load: Mercury, sellers, banks
+  // Initial load: Mercury, sellers, banks, recent receipts
   useEffect(() => {
     void (async () => {
-      const [tx, s, b] = await Promise.all([
+      const [tx, s, b, r] = await Promise.all([
         fetch("/api/mercury/recent")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
@@ -59,12 +80,64 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
         fetch("/api/banks")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
+        fetch("/api/receipts")
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => []),
       ]);
       setTxs(Array.isArray(tx) ? tx : []);
       setSellers(s);
       setBanks(b);
+      setRecentReceipts(Array.isArray(r) ? r.slice(0, 5) : []);
     })();
   }, []);
+
+  async function handleScreenshot(file: File) {
+    setExtracting(true);
+    setExtractMsg(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("read failed"));
+        reader.readAsDataURL(file);
+      });
+      const dataBase64 = dataUrl.split(",")[1] ?? "";
+      const res = await fetch("/api/extract-payment", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mimeType: file.type || "application/pdf",
+          dataBase64,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Extraction failed");
+      const customerName = data.customer_name || data.sender_name || "";
+      const amount = Number(data.amount_usd) || 0;
+      if (!customerName || !amount) {
+        setExtractMsg(
+          "Couldn't read customer name + amount from that. Try a clearer image or type it in.",
+        );
+        return;
+      }
+      setExtractedFromShot({
+        customerName,
+        customerEmail: data.customer_email ?? undefined,
+        customerAddress: data.customer_address ?? undefined,
+        amount,
+        date: data.date_iso ?? undefined,
+        method: data.payment_method ?? undefined,
+      });
+      // Clear any picked Mercury tx
+      setPicked(null);
+      setExtractMsg(`Pulled ${customerName} · ${formatUSD(Math.round(amount * 100))}.`);
+      setTimeout(() => refInputRef.current?.focus(), 50);
+    } catch (e) {
+      setExtractMsg(e instanceof Error ? e.message : "Couldn't read that file.");
+    } finally {
+      setExtracting(false);
+    }
+  }
 
   // Filter Mercury txs by query (name or amount)
   const matches = useMemo(() => {
@@ -92,6 +165,8 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
 
   function pickTx(tx: MercuryTx) {
     setPicked(tx);
+    setExtractedFromShot(null);
+    setExtractMsg(null);
     setQuery("");
     // Fetch detail for enrichment (best-effort)
     void (async () => {
@@ -136,6 +211,8 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
 
   function clearPick() {
     setPicked(null);
+    setExtractedFromShot(null);
+    setExtractMsg(null);
     setEnrichedAddress("");
     setEnrichedConfirmation("");
     setRefNum("");
@@ -144,6 +221,8 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
     setYear("");
     setWatchSummary(null);
   }
+
+  const hasSelection = !!picked || !!extractedFromShot;
 
   async function lookupWatch() {
     const r = refNum.trim();
@@ -167,49 +246,80 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
   }
 
   async function save() {
-    if (!picked || submitting) return;
+    if (!hasSelection || submitting) return;
     if (!brand.trim() || !model.trim()) {
       setError("Watch brand + model required. Type a reference and tap Look up.");
       return;
     }
-    setSubmitting(true);
-    setError(null);
-    try {
-      const senderName =
-        picked.counterpartyName ?? picked.counterpartyNickname ?? "";
-      const dateStr = (picked.postedAt ?? picked.createdAt).slice(0, 10);
-      const method = picked.kind.toLowerCase().includes("wire")
-        ? "Wire"
-        : "Other";
-      const methodOther =
+
+    // Build payment data from whichever source was used
+    let senderName = "";
+    let amountUsd = "";
+    let dateStr = new Date().toISOString().slice(0, 10);
+    let method: "Zelle" | "Wire" | "Other" = "Other";
+    let methodOther = "";
+    let confirmation = "";
+    let customerEmail = "";
+    let customerAddress = "";
+
+    if (picked) {
+      senderName = picked.counterpartyName ?? picked.counterpartyNickname ?? "";
+      amountUsd = String(picked.amount);
+      dateStr = (picked.postedAt ?? picked.createdAt).slice(0, 10);
+      method = picked.kind.toLowerCase().includes("wire") ? "Wire" : "Other";
+      methodOther =
         method === "Other"
           ? picked.kind === "checkDeposit"
             ? "Check"
             : "ACH"
           : "";
-      // Pick a bank — match the kind to one of Joe's banks if possible
-      const bankId =
-        method === "Wire"
-          ? banks.find((b) => b.acceptsWire && !b.acceptsZelle)?.id ??
-            banks[0]?.id ??
-            ""
+      confirmation = enrichedConfirmation;
+      customerAddress = enrichedAddress;
+    } else if (extractedFromShot) {
+      senderName = extractedFromShot.customerName;
+      amountUsd = String(extractedFromShot.amount);
+      dateStr = extractedFromShot.date ?? dateStr;
+      const m = extractedFromShot.method;
+      if (m === "Zelle") method = "Zelle";
+      else if (m === "Wire") method = "Wire";
+      else if (m === "ACH") {
+        method = "Other";
+        methodOther = "ACH";
+      } else if (m === "Other" || m) {
+        method = "Other";
+        methodOther = m === "Other" ? "" : m;
+      }
+      customerEmail = extractedFromShot.customerEmail ?? "";
+      customerAddress = extractedFromShot.customerAddress ?? "";
+    }
+
+    const bankId =
+      method === "Wire"
+        ? banks.find((b) => b.acceptsWire && !b.acceptsZelle)?.id ??
+          banks[0]?.id ??
+          ""
+        : method === "Zelle"
+          ? banks.find((b) => b.acceptsZelle)?.id ?? banks[0]?.id ?? ""
           : banks[0]?.id ?? "";
 
+    setSubmitting(true);
+    setError(null);
+    try {
       const formPayload = {
         payment: {
           sender: senderName,
-          amountUsd: String(picked.amount),
+          amountUsd,
           date: dateStr,
-          confirmation: enrichedConfirmation,
+          confirmation,
           method,
           methodOther,
           bankAccountId: bankId,
         },
         customer: {
           name: senderName,
-          email: "",
+          email: customerEmail,
           phone: "",
-          addressLines: enrichedAddress,
+          addressLines: customerAddress,
           street: "",
           city: "",
           state: "",
@@ -225,11 +335,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
           hasPapers: true,
           serial: "",
         },
-        seller: {
-          soldBy,
-          commissionType: null,
-          commissionValue: "",
-        },
+        seller: { soldBy, commissionType: null, commissionValue: "" },
         totals: { shippingUsd: "", taxUsd: "" },
         notes: "",
       };
@@ -255,8 +361,8 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Step 1: pick a Mercury payment */}
-      {!picked ? (
+      {/* Step 1: pick a Mercury payment OR drop a screenshot */}
+      {!hasSelection ? (
         <div className="flex flex-col gap-3">
           <label className="block">
             <div className="text-sm text-muted mb-2">
@@ -343,13 +449,67 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
               .
             </div>
           )}
+          {/* Screenshot fallback for Chase Zelle / Mercury invoices / anything else */}
+          <div>
+            <label
+              className={`block cursor-pointer rounded-2xl border-2 border-dashed px-4 py-4 transition-colors ${
+                extracting
+                  ? "border-accent bg-accent-soft"
+                  : "border-divider hover:border-accent hover:bg-accent-soft/40"
+              }`}
+            >
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleScreenshot(f);
+                  e.target.value = "";
+                }}
+                disabled={extracting}
+              />
+              <div className="flex items-center gap-3">
+                <Paperclip
+                  size={18}
+                  className={extracting ? "text-accent" : "text-muted"}
+                />
+                <div className="flex-1">
+                  {extracting ? (
+                    <div className="text-sm text-accent font-medium">Reading…</div>
+                  ) : (
+                    <>
+                      <div className="text-sm text-ink font-medium">
+                        Or drop a screenshot
+                      </div>
+                      <div className="text-xs text-muted">
+                        Mercury invoice, Chase Zelle, wire confirmation — Gemini reads it.
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </label>
+            {extractMsg ? (
+              <p className="mt-2 text-xs text-muted">{extractMsg}</p>
+            ) : null}
+          </div>
         </div>
-      ) : (
+      ) : picked ? (
         <PaymentSummaryCard tx={picked} address={enrichedAddress} onChange={clearPick} />
-      )}
+      ) : extractedFromShot ? (
+        <ExtractedSummaryCard
+          customerName={extractedFromShot.customerName}
+          amount={extractedFromShot.amount}
+          date={extractedFromShot.date}
+          method={extractedFromShot.method}
+          address={extractedFromShot.customerAddress}
+          onChange={clearPick}
+        />
+      ) : null}
 
       {/* Step 2: watch reference + AI lookup */}
-      {picked ? (
+      {hasSelection ? (
         <div className="flex flex-col gap-3">
           <div className="text-sm text-muted">Watch reference number</div>
           <div className="flex gap-2 items-center">
@@ -408,7 +568,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       ) : null}
 
       {/* Step 3: who sold it */}
-      {picked && brand && model ? (
+      {hasSelection && brand && model ? (
         <div className="flex items-center gap-3 text-sm">
           <span className="text-muted">Sold by</span>
           <PillToggle
@@ -429,14 +589,16 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       ) : null}
 
       {/* Save */}
-      {picked && brand && model ? (
+      {hasSelection && brand && model ? (
         <button
           type="button"
           onClick={save}
           disabled={submitting}
           className="bg-accent hover:bg-accent-deep text-white font-semibold text-base py-4 rounded-2xl disabled:opacity-40 transition-colors shadow-[0_4px_16px_-6px_rgba(0,82,255,0.4)]"
         >
-          {submitting ? "Saving…" : `Save receipt for ${formatUSD(Math.round(picked.amount * 100))} →`}
+          {submitting
+            ? "Saving…"
+            : `Save receipt for ${formatUSD(Math.round((picked?.amount ?? extractedFromShot?.amount ?? 0) * 100))} →`}
         </button>
       ) : null}
 
@@ -454,6 +616,94 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       >
         <Pencil size={13} /> Type it in instead
       </button>
+
+      {/* Recent receipts — only when no selection in progress */}
+      {!hasSelection && recentReceipts.length > 0 ? (
+        <div className="mt-2">
+          <div className="flex items-baseline justify-between mb-2">
+            <h2 className="text-sm text-muted font-medium flex items-center gap-1.5">
+              <ReceiptText size={14} /> Recent receipts
+            </h2>
+            <Link href="/history" className="text-sm text-accent hover:text-accent-deep">
+              View all →
+            </Link>
+          </div>
+          <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
+            {recentReceipts.map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={`/history/${r.id}`}
+                  className="grid grid-cols-[1fr_auto] gap-3 items-center px-4 py-3 hover:bg-divider-soft transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm text-ink truncate">{r.customer.name}</div>
+                    <div className="text-xs text-muted truncate">
+                      {r.brand} {r.model} ·{" "}
+                      {new Date(r.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
+                  </div>
+                  <div className="text-sm font-semibold text-ink nums shrink-0">
+                    {formatUSD(r.totalCents)}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExtractedSummaryCard({
+  customerName,
+  amount,
+  date,
+  method,
+  address,
+  onChange,
+}: {
+  customerName: string;
+  amount: number;
+  date?: string;
+  method?: string;
+  address?: string;
+  onChange: () => void;
+}) {
+  const d = date ? new Date(date) : new Date();
+  return (
+    <div className="bg-gradient-to-br from-accent to-accent-deep text-white rounded-2xl p-5 shadow-[0_8px_24px_-8px_rgba(0,82,255,0.4)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs opacity-80">
+            {d.toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+            {method ? ` · ${method}` : ""} · From screenshot
+          </div>
+          <div className="text-2xl font-bold tracking-tight nums mt-1">
+            {formatUSD(Math.round(amount * 100))}
+          </div>
+          <div className="text-base mt-1 opacity-95">{customerName}</div>
+          {address ? (
+            <div className="text-xs opacity-80 mt-1.5 whitespace-pre-line">
+              {address}
+            </div>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={onChange}
+          className="shrink-0 text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full flex items-center gap-1 transition-colors"
+        >
+          <X size={12} /> Change
+        </button>
+      </div>
     </div>
   );
 }
