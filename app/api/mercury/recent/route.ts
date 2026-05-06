@@ -26,13 +26,15 @@ type MercuryTransaction = {
   createdAt: string;
 };
 
+// Only true customer-incoming credits. Explicitly excludes:
+//   internalTransfer / treasuryTransfer (your own money moving between accounts),
+//   creditCardCredit / feeReversal (refunds, not sales),
+//   anything outgoing.
 const INCOMING_KINDS = new Set([
   "incomingDomesticWire",
   "incomingInternationalWire",
   "externalTransfer",
   "checkDeposit",
-  "treasuryTransfer",
-  "internalTransfer",
 ]);
 
 export async function GET() {
