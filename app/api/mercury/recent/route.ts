@@ -90,7 +90,7 @@ export async function GET() {
       return tb - ta;
     });
 
-    return NextResponse.json(collected.slice(0, 12));
+    return NextResponse.json(collected.slice(0, 60));
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "unknown" },

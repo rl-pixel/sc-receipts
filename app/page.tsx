@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
+import { QuickReceipt } from "@/components/QuickReceipt";
 import { MercuryRecent, type MercuryTx } from "@/components/MercuryRecent";
 import { Textarea, LineInput } from "@/components/Field";
 import { PillToggle } from "@/components/PillToggle";
@@ -63,6 +64,7 @@ export default function NewReceiptPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reveals, setReveals] = useState<Reveals>(initialReveals);
+  const [mode, setMode] = useState<"quick" | "manual">("quick");
 
   useEffect(() => {
     const saved = loadForm();
@@ -413,6 +415,15 @@ export default function NewReceiptPage() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
           New receipt
         </h1>
+
+        {mode === "quick" ? (
+          <div className="mt-7">
+            <QuickReceipt onSwitchToManual={() => setMode("manual")} />
+          </div>
+        ) : null}
+
+        {mode === "manual" ? (
+        <>
         <p className="text-sm text-muted mt-1">
           Tap a Mercury payment, drop a screenshot, or fill in below.
         </p>
@@ -454,7 +465,6 @@ export default function NewReceiptPage() {
           ) : null}
         </div>
 
-        <>
         <div className="mt-7 card-lift divide-y divide-divider">
           <Sec title="Customer" done={customerDone}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
@@ -756,8 +766,10 @@ export default function NewReceiptPage() {
           </div>
         ) : null}
         </>
+        ) : null}
       </main>
 
+      {mode === "manual" ? (
       <div className="fixed bottom-[64px] sm:bottom-0 inset-x-0 z-30 bg-bg/95 backdrop-blur-md border-t border-divider">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <div className="flex-1 nums">
@@ -776,6 +788,7 @@ export default function NewReceiptPage() {
           </button>
         </div>
       </div>
+      ) : null}
 
       <BottomNav active="new" />
     </div>
