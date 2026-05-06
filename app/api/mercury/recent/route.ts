@@ -26,15 +26,15 @@ type MercuryTransaction = {
   createdAt: string;
 };
 
-// Only true customer-incoming credits. Explicitly excludes:
-//   internalTransfer / treasuryTransfer (your own money moving between accounts),
-//   creditCardCredit / feeReversal (refunds, not sales),
-//   anything outgoing.
-const INCOMING_KINDS = new Set([
+// Real money-movement kinds (in OR out). Excludes noise: internal/treasury
+// transfers between Joe's own accounts, fees, card spend, fee reversals.
+// Direction is derived from the SIGN of `amount` on the client.
+const RELEVANT_KINDS = new Set([
   "incomingDomesticWire",
   "incomingInternationalWire",
   "externalTransfer",
   "checkDeposit",
+  "outgoingPayment",
 ]);
 
 export async function GET() {
@@ -70,9 +70,9 @@ export async function GET() {
         const transactions: MercuryTransaction[] = txBody.transactions ?? [];
         for (const t of transactions) {
           if (
-            t.amount > 0 &&
+            t.amount !== 0 &&
             t.status === "sent" &&
-            INCOMING_KINDS.has(t.kind)
+            RELEVANT_KINDS.has(t.kind)
           ) {
             collected.push({
               ...t,

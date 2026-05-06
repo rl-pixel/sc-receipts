@@ -12,12 +12,29 @@ import { formatUSD } from "@/lib/money";
 type Seller = { id: string; name: string };
 type Bank = { id: string; label: string; acceptsZelle: boolean; acceptsWire: boolean };
 
+type AppReceipt = {
+  id: string;
+  receiptNumber: string;
+  brand: string;
+  model: string;
+  totalCents: number;
+  createdAt: string;
+  customer: { name: string; email: string };
+};
+
+type FeedItem =
+  | { kind: "money_in"; sortKey: number; tx: MercuryTx }
+  | { kind: "money_out"; sortKey: number; tx: MercuryTx }
+  | { kind: "invoice_out"; sortKey: number; inv: MercuryInvoice }
+  | { kind: "receipt"; sortKey: number; r: AppReceipt };
+
 export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => void }) {
   const router = useRouter();
 
-  // Mercury data
+  // Mercury data + app receipts
   const [txs, setTxs] = useState<MercuryTx[]>([]);
   const [invoices, setInvoices] = useState<MercuryInvoice[]>([]);
+  const [appReceipts, setAppReceipts] = useState<AppReceipt[]>([]);
   const [picked, setPicked] = useState<MercuryTx | null>(null);
   const [pickedInvoice, setPickedInvoice] = useState<MercuryInvoice | null>(null);
 
@@ -59,14 +76,17 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
 
   const refInputRef = useRef<HTMLInputElement>(null);
 
-  // Initial load: Mercury txs + invoices + sellers + banks
+  // Initial load: Mercury txs + invoices + app receipts + sellers + banks
   useEffect(() => {
     void (async () => {
-      const [tx, inv, s, b] = await Promise.all([
+      const [tx, inv, rec, s, b] = await Promise.all([
         fetch("/api/mercury/recent")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
         fetch("/api/mercury/invoices")
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => []),
+        fetch("/api/receipts")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
         fetch("/api/sellers")
@@ -78,6 +98,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       ]);
       setTxs(Array.isArray(tx) ? tx : []);
       setInvoices(Array.isArray(inv) ? inv : []);
+      setAppReceipts(Array.isArray(rec) ? rec : []);
       setSellers(s);
       setBanks(b);
     })();
@@ -131,49 +152,55 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
     }
   }
 
-  // Filter Mercury txs by query (name or amount)
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return txs.slice(0, 6);
-    const numQ = Number(q.replace(/[$,]/g, ""));
-    const isNum = !Number.isNaN(numQ) && numQ > 0;
-    return txs
-      .filter((t) => {
-        const name = (
-          t.counterpartyName ??
-          t.counterpartyNickname ??
-          ""
-        ).toLowerCase();
-        if (name.includes(q)) return true;
-        if (isNum) {
-          const amt = Math.round(t.amount);
-          if (amt === Math.round(numQ)) return true;
-          if (String(amt).startsWith(String(Math.round(numQ)))) return true;
-        }
-        return false;
-      })
-      .slice(0, 6);
-  }, [query, txs]);
+  // Build the unified feed — money in, money out, invoices out, receipts —
+  // sorted newest first, then filter by the search query.
+  const feed = useMemo<FeedItem[]>(() => {
+    const items: FeedItem[] = [];
+    for (const t of txs) {
+      const sortKey = new Date(t.postedAt ?? t.createdAt).getTime();
+      items.push({ kind: t.amount >= 0 ? "money_in" : "money_out", sortKey, tx: t });
+    }
+    for (const i of invoices) {
+      const sortKey = new Date(i.updatedAt).getTime();
+      items.push({ kind: "invoice_out", sortKey, inv: i });
+    }
+    for (const r of appReceipts) {
+      const sortKey = new Date(r.createdAt).getTime();
+      items.push({ kind: "receipt", sortKey, r });
+    }
+    items.sort((a, b) => b.sortKey - a.sortKey);
+    return items;
+  }, [txs, invoices, appReceipts]);
 
-  // Same search applied to invoices (name OR amount)
-  const matchedInvoices = useMemo(() => {
+  const filteredFeed = useMemo<FeedItem[]>(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return invoices.slice(0, 6);
+    if (!q) return feed.slice(0, 14);
     const numQ = Number(q.replace(/[$,]/g, ""));
     const isNum = !Number.isNaN(numQ) && numQ > 0;
-    return invoices
-      .filter((i) => {
-        const name = (i.recipient.name ?? i.recipient.email ?? "").toLowerCase();
+    return feed
+      .filter((item) => {
+        let name = "";
+        let amount = 0;
+        if (item.kind === "money_in" || item.kind === "money_out") {
+          name = (item.tx.counterpartyName ?? item.tx.counterpartyNickname ?? "").toLowerCase();
+          amount = Math.abs(item.tx.amount);
+        } else if (item.kind === "invoice_out") {
+          name = (item.inv.recipient.name ?? item.inv.recipient.email ?? "").toLowerCase();
+          amount = item.inv.amount;
+        } else {
+          name = (item.r.customer.name ?? "").toLowerCase();
+          amount = item.r.totalCents / 100;
+        }
         if (name.includes(q)) return true;
         if (isNum) {
-          const amt = Math.round(i.amount);
+          const amt = Math.round(amount);
           if (amt === Math.round(numQ)) return true;
           if (String(amt).startsWith(String(Math.round(numQ)))) return true;
         }
         return false;
       })
-      .slice(0, 6);
-  }, [query, invoices]);
+      .slice(0, 14);
+  }, [query, feed]);
 
   function pickInvoice(inv: MercuryInvoice) {
     setPickedInvoice(inv);
@@ -415,48 +442,27 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
             </div>
           </label>
 
-          {matches.length > 0 ? (
+          {filteredFeed.length > 0 ? (
             <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
-              {matches.map((t) => {
-                const name =
-                  t.counterpartyName ?? t.counterpartyNickname ?? "Unknown";
-                const date = new Date(t.postedAt ?? t.createdAt);
-                return (
-                  <li key={t.id}>
-                    <button
-                      type="button"
-                      onClick={() => pickTx(t)}
-                      className="w-full grid grid-cols-[1fr_auto] gap-3 items-center px-4 py-3 text-left hover:bg-divider-soft active:bg-accent-soft transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-base text-ink truncate">{name}</div>
-                        <div className="text-xs text-muted">
-                          {date.toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                          {" · "}
-                          {t.kind.toLowerCase().includes("wire")
-                            ? "Wire"
-                            : t.kind === "checkDeposit"
-                              ? "Check"
-                              : "ACH"}
-                          {" · "}
-                          {t.accountName}
-                        </div>
-                      </div>
-                      <div className="text-base font-semibold text-ink nums shrink-0">
-                        {formatUSD(Math.round(t.amount * 100))}
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
+              {filteredFeed.map((item) => (
+                <FeedRow
+                  key={
+                    item.kind === "money_in" || item.kind === "money_out"
+                      ? `tx-${item.tx.id}`
+                      : item.kind === "invoice_out"
+                        ? `inv-${item.inv.id}`
+                        : `r-${item.r.id}`
+                  }
+                  item={item}
+                  onPickTx={pickTx}
+                  onPickInvoice={pickInvoice}
+                  onOpenReceipt={(id) => router.push(`/history/${id}`)}
+                />
+              ))}
             </ul>
           ) : query.trim() ? (
             <div className="text-sm text-muted bg-white border border-divider rounded-2xl px-4 py-3">
-              Nothing matches in Mercury.{" "}
+              Nothing matches.{" "}
               <button
                 type="button"
                 onClick={onSwitchToManual}
@@ -468,7 +474,7 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
             </div>
           ) : (
             <div className="text-sm text-muted bg-white border border-divider rounded-2xl px-4 py-5 text-center">
-              No recent Mercury payments yet.{" "}
+              No recent activity.{" "}
               <button
                 type="button"
                 onClick={onSwitchToManual}
@@ -479,55 +485,6 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
               .
             </div>
           )}
-          {/* Mercury invoices ("payment requests") */}
-          {matchedInvoices.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              <h2 className="text-sm text-muted font-medium flex items-center gap-1.5">
-                <FileText size={14} /> Mercury invoices
-              </h2>
-              <ul className="bg-white border border-divider rounded-2xl divide-y divide-divider overflow-hidden">
-                {matchedInvoices.map((inv) => {
-                  const name = inv.recipient.name ?? inv.recipient.email ?? "Unknown";
-                  const date = new Date(inv.updatedAt);
-                  return (
-                    <li key={inv.id}>
-                      <button
-                        type="button"
-                        onClick={() => pickInvoice(inv)}
-                        className="w-full grid grid-cols-[1fr_auto] gap-3 items-center px-4 py-3 text-left hover:bg-divider-soft active:bg-accent-soft transition-colors"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-base text-ink truncate">{name}</div>
-                          <div className="text-xs text-muted flex items-center gap-1.5">
-                            <span>
-                              {date.toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
-                            </span>
-                            <span>·</span>
-                            <span
-                              className={`px-1.5 py-0.5 rounded ${
-                                inv.status === "Paid"
-                                  ? "bg-success-soft text-success-deep"
-                                  : "bg-divider-soft text-muted"
-                              }`}
-                            >
-                              {inv.status}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-base font-semibold text-ink nums shrink-0">
-                          {formatUSD(Math.round(inv.amount * 100))}
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
 
           {/* Screenshot fallback for Chase Zelle / Mercury invoices / anything else */}
           <div>
@@ -707,6 +664,116 @@ export function QuickReceipt({ onSwitchToManual }: { onSwitchToManual: () => voi
       </button>
 
     </div>
+  );
+}
+
+function FeedRow({
+  item,
+  onPickTx,
+  onPickInvoice,
+  onOpenReceipt,
+}: {
+  item: FeedItem;
+  onPickTx: (t: MercuryTx) => void;
+  onPickInvoice: (i: MercuryInvoice) => void;
+  onOpenReceipt: (id: string) => void;
+}) {
+  let label = "";
+  let pillClass = "";
+  let name = "";
+  let amount = 0;
+  let date = new Date();
+  let meta = "";
+  let onClick: (() => void) | null = null;
+  let amountClass = "text-ink";
+
+  if (item.kind === "money_in") {
+    label = "Money in";
+    pillClass = "bg-success-soft text-success-deep";
+    const t = item.tx;
+    name = t.counterpartyName ?? t.counterpartyNickname ?? "Unknown";
+    amount = Math.abs(t.amount);
+    date = new Date(t.postedAt ?? t.createdAt);
+    meta = t.kind.toLowerCase().includes("wire")
+      ? "Wire"
+      : t.kind === "checkDeposit"
+        ? "Check"
+        : "ACH";
+    onClick = () => onPickTx(t);
+    amountClass = "text-success-deep";
+  } else if (item.kind === "money_out") {
+    label = "Money out";
+    pillClass = "bg-divider-soft text-muted";
+    const t = item.tx;
+    name = t.counterpartyName ?? t.counterpartyNickname ?? "Unknown";
+    amount = Math.abs(t.amount);
+    date = new Date(t.postedAt ?? t.createdAt);
+    meta = t.kind.toLowerCase().includes("wire") ? "Wire" : "Payment";
+    amountClass = "text-muted";
+    // not actionable for receipts — no onClick
+  } else if (item.kind === "invoice_out") {
+    label = "Invoice out";
+    pillClass = "bg-accent-soft text-accent-deep";
+    const inv = item.inv;
+    name = inv.recipient.name ?? inv.recipient.email ?? "Unknown";
+    amount = inv.amount;
+    date = new Date(inv.updatedAt);
+    meta = inv.status;
+    onClick = () => onPickInvoice(inv);
+  } else {
+    label = "Receipt";
+    pillClass = "bg-gold-soft text-amber-700";
+    const r = item.r;
+    name = r.customer.name;
+    amount = r.totalCents / 100;
+    date = new Date(r.createdAt);
+    meta = `${r.brand} ${r.model}`.trim() || r.receiptNumber;
+    onClick = () => onOpenReceipt(r.id);
+  }
+
+  const dateStr = date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const inner = (
+    <>
+      <span
+        className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${pillClass}`}
+      >
+        {label}
+      </span>
+      <div className="min-w-0">
+        <div className="text-base text-ink truncate">{name}</div>
+        <div className="text-xs text-muted truncate">
+          {dateStr} · {meta}
+        </div>
+      </div>
+      <div className={`text-base font-semibold nums shrink-0 ${amountClass}`}>
+        {item.kind === "money_out" ? "−" : ""}
+        {formatUSD(Math.round(amount * 100))}
+      </div>
+    </>
+  );
+
+  if (!onClick) {
+    return (
+      <li className="grid grid-cols-[auto_1fr_auto] gap-3 items-center px-4 py-3 opacity-70">
+        {inner}
+      </li>
+    );
+  }
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full grid grid-cols-[auto_1fr_auto] gap-3 items-center px-4 py-3 text-left hover:bg-divider-soft active:bg-accent-soft transition-colors"
+      >
+        {inner}
+      </button>
+    </li>
   );
 }
 
