@@ -196,9 +196,9 @@ export default function NewReceiptPage() {
     }
   }
 
-  // Mercury: pick a recent transaction → prefill form
+  // Mercury: pick a recent transaction → prefill form (with detail enrichment)
   const [pickedMercuryId, setPickedMercuryId] = useState<string | null>(null);
-  function applyMercuryTx(tx: MercuryTx) {
+  async function applyMercuryTx(tx: MercuryTx) {
     setPickedMercuryId(tx.id);
     setForm((f) => {
       const next = { ...f, customer: { ...f.customer }, payment: { ...f.payment } };
@@ -210,7 +210,6 @@ export default function NewReceiptPage() {
       next.payment.amountUsd = String(tx.amount);
       const dateStr = (tx.postedAt ?? tx.createdAt).slice(0, 10);
       next.payment.date = dateStr;
-      // Map Mercury "kind" to our payment method
       if (tx.kind.toLowerCase().includes("wire")) {
         next.payment.method = "Wire";
       } else if (tx.kind === "checkDeposit") {
@@ -223,6 +222,55 @@ export default function NewReceiptPage() {
       return next;
     });
     setExtractMsg(`Loaded from Mercury — ${tx.accountName}. Add the watch + price.`);
+
+    // Enrichment: fetch full detail to pull address / sender bank if available
+    try {
+      const res = await fetch(
+        `/api/mercury/transaction?accountId=${encodeURIComponent(tx.accountId)}&id=${encodeURIComponent(tx.id)}`,
+      );
+      if (!res.ok) return;
+      const detail = await res.json();
+      const d = detail?.details ?? {};
+      // Try common Mercury detail field shapes for address + memo
+      const addressParts: string[] = [];
+      const wd = d.wireDetails ?? d.wire ?? {};
+      const ach = d.achDetails ?? {};
+      const orig =
+        wd.originator ??
+        wd.senderAddress ??
+        wd.senderName ??
+        d.originator ??
+        null;
+      if (typeof orig === "string") {
+        addressParts.push(orig);
+      } else if (orig && typeof orig === "object") {
+        for (const k of ["addressLine1", "addressLine2", "city", "state", "zip", "country"]) {
+          if (orig[k]) addressParts.push(String(orig[k]));
+        }
+      }
+      const memo: string | undefined =
+        d.memo ?? wd.memo ?? ach.memo ?? detail?.externalMemo ?? detail?.note;
+      const confirmation: string | undefined =
+        wd.imadId ?? wd.imad ?? wd.referenceNumber ?? d.referenceNumber;
+
+      setForm((f) => {
+        const next = { ...f, customer: { ...f.customer }, payment: { ...f.payment } };
+        if (addressParts.length && !f.customer.addressLines) {
+          next.customer.addressLines = addressParts.join("\n");
+        }
+        if (memo && !f.notes) {
+          next.notes = `Mercury memo: ${memo}`;
+        }
+        if (confirmation && !f.payment.confirmation) {
+          next.payment.confirmation = String(confirmation);
+        }
+        return next;
+      });
+      if (addressParts.length) setReveals((r) => ({ ...r, address: true }));
+      if (confirmation) setReveals((r) => ({ ...r, confirmation: true }));
+    } catch {
+      // enrichment is best-effort
+    }
   }
 
   // AI: lookup watch by reference number
