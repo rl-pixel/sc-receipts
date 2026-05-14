@@ -46,9 +46,11 @@ async function main() {
     await db.appSetting.upsert({ where: { key: s.key }, update: {}, create: s });
   }
 
-  await seedSampleOrders();
+  if (process.env.SEED_SAMPLES === "true") {
+    await seedSampleOrders();
+  }
 
-  console.log("Seeded sellers, banks, brands, settings, and sample orders.");
+  console.log("Seeded sellers, banks, brands, and settings.");
 }
 
 async function seedSampleOrders() {
