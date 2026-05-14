@@ -29,9 +29,13 @@ type OrderRow = {
   saleCents: number;
   priorityFlag: boolean;
   paymentConfirmedAt: string | null;
+  pickedAt: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;
   payoutReceivedAt: string | null;
+  carrier: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
   createdAt: string;
   customer: { id: string; name: string };
 };
@@ -43,9 +47,10 @@ type ListResponse = {
   byStatus: Record<string, number>;
 };
 
-const QUEUE_FILTERS: Status[] = ["PAID", "PICKED", "SHIPPED"];
-const RECENT_FILTERS: Status[] = ["DELIVERED", "RELEASED"];
-const POLL_MS = 30_000;
+const QUEUE_FILTERS: Status[] = ["PAID", "PICKED"];
+const IN_TRANSIT_FILTERS: Status[] = ["SHIPPED"];
+const PENDING_FILTERS: Status[] = ["PENDING"];
+const COMPLETED_FILTERS: Status[] = ["DELIVERED", "RELEASED"];
 const ALL_FILTERS: Status[] = [
   "PENDING",
   "PAID",
@@ -56,15 +61,23 @@ const ALL_FILTERS: Status[] = [
   "CANCELLED",
   "REFUNDED",
 ];
+const POLL_MS = 30_000;
 
 export default function OrdersPage() {
   const router = useRouter();
   const [queue, setQueue] = useState<OrderRow[] | null>(null);
+  const [inTransit, setInTransit] = useState<OrderRow[]>([]);
   const [pending, setPending] = useState<OrderRow[]>([]);
+  const [completed, setCompleted] = useState<OrderRow[] | null>(null);
   const [byStatus, setByStatus] = useState<Record<string, number>>({});
-  const [recently, setRecently] = useState<OrderRow[] | null>(null);
-  const [recentlyOpen, setRecentlyOpen] = useState(false);
+
+  const [completedOpen, setCompletedOpen] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
+  // Sections that default to "open if data, collapsed if empty" — track user
+  // overrides separately so a manual toggle wins over the data-driven default.
+  const [inTransitToggle, setInTransitToggle] = useState<boolean | null>(null);
+  const [pendingToggle, setPendingToggle] = useState<boolean | null>(null);
+
   const [busyRow, setBusyRow] = useState<string | null>(null);
   const [confirmPaidId, setConfirmPaidId] = useState<string | null>(null);
   const [pendingActionCount, setPendingActionCount] = useState(0);
@@ -77,34 +90,44 @@ export default function OrdersPage() {
     setByStatus(data.byStatus);
   }
 
+  async function loadInTransit() {
+    const res = await fetch(`/api/orders?status=${IN_TRANSIT_FILTERS.join(",")}&sort=created`);
+    if (!res.ok) return;
+    const data: ListResponse = await res.json();
+    setInTransit(data.orders);
+    setByStatus(data.byStatus);
+  }
+
   async function loadPending() {
-    const res = await fetch(`/api/orders?status=PENDING`);
+    const res = await fetch(`/api/orders?status=${PENDING_FILTERS.join(",")}`);
     if (!res.ok) return;
     const data: ListResponse = await res.json();
     setPending(data.orders);
+    setByStatus(data.byStatus);
   }
 
-  async function loadRecently() {
+  async function loadCompleted() {
     const since = new Date();
-    since.setDate(since.getDate() - 14);
+    since.setDate(since.getDate() - 30);
     const res = await fetch(
-      `/api/orders?status=${RECENT_FILTERS.join(",")}&from=${since.toISOString()}`,
+      `/api/orders?status=${COMPLETED_FILTERS.join(",")}&from=${since.toISOString()}&sort=created`,
     );
     if (!res.ok) return;
     const data: ListResponse = await res.json();
-    setRecently(data.orders);
+    setCompleted(data.orders);
+    setByStatus(data.byStatus);
   }
 
   async function reloadAll() {
-    await Promise.all([loadQueue(), loadPending()]);
-    if (recentlyOpen) await loadRecently();
+    await Promise.all([loadQueue(), loadInTransit(), loadPending()]);
+    if (completedOpen) await loadCompleted();
   }
 
   async function softRefresh() {
     if (pendingActionCount > 0) return;
     try {
-      await Promise.all([loadQueue(), loadPending()]);
-      if (recentlyOpen) await loadRecently();
+      await Promise.all([loadQueue(), loadInTransit(), loadPending()]);
+      if (completedOpen) await loadCompleted();
     } catch {
       // swallow; next interval will retry
     }
@@ -116,9 +139,9 @@ export default function OrdersPage() {
   }, []);
 
   useEffect(() => {
-    if (recentlyOpen && !recently) void loadRecently();
+    if (completedOpen && !completed) void loadCompleted();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recentlyOpen]);
+  }, [completedOpen]);
 
   // Auto-refresh: poll every POLL_MS while the tab is visible, pause when hidden.
   useEffect(() => {
@@ -154,7 +177,7 @@ export default function OrdersPage() {
       stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recentlyOpen, pendingActionCount]);
+  }, [completedOpen, pendingActionCount]);
 
   // Sort: priority desc → paymentConfirmedAt asc → createdAt asc
   const sortedQueue = useMemo(() => {
@@ -168,6 +191,14 @@ export default function OrdersPage() {
     });
   }, [queue]);
 
+  const sortedInTransit = useMemo(() => {
+    return [...inTransit].sort((a, b) => {
+      const aS = a.shippedAt ? new Date(a.shippedAt).getTime() : 0;
+      const bS = b.shippedAt ? new Date(b.shippedAt).getTime() : 0;
+      return bS - aS;
+    });
+  }, [inTransit]);
+
   const sortedPending = useMemo(() => {
     return [...pending].sort((a, b) => {
       if (a.priorityFlag !== b.priorityFlag) return a.priorityFlag ? -1 : 1;
@@ -175,13 +206,29 @@ export default function OrdersPage() {
     });
   }, [pending]);
 
-  const heroCount =
-    (byStatus.PAID ?? 0) + (byStatus.PICKED ?? 0) + (byStatus.SHIPPED ?? 0);
+  const sortedCompleted = useMemo(() => {
+    if (!completed) return [];
+    return [...completed].sort((a, b) => {
+      const aT = new Date(a.deliveredAt ?? a.payoutReceivedAt ?? a.createdAt).getTime();
+      const bT = new Date(b.deliveredAt ?? b.payoutReceivedAt ?? b.createdAt).getTime();
+      return bT - aT;
+    });
+  }, [completed]);
 
+  // Hero counts — PAID + PICKED only (NOT SHIPPED, that's gone from Jacob's hands).
+  const heroCount = (byStatus.PAID ?? 0) + (byStatus.PICKED ?? 0);
   const breakdownParts: string[] = [];
   if (byStatus.PAID) breakdownParts.push(`${byStatus.PAID} paid`);
   if (byStatus.PICKED) breakdownParts.push(`${byStatus.PICKED} picked`);
-  if (byStatus.SHIPPED) breakdownParts.push(`${byStatus.SHIPPED} shipped`);
+
+  const inTransitCount = byStatus.SHIPPED ?? sortedInTransit.length;
+  const pendingCount = byStatus.PENDING ?? sortedPending.length;
+  const completedCount = (byStatus.DELIVERED ?? 0) + (byStatus.RELEASED ?? 0);
+
+  // Defaulted-open sections: derive open state from data unless user clicked.
+  const inTransitOpen =
+    inTransitToggle ?? (sortedInTransit.length > 0 || inTransitCount > 0);
+  const pendingOpen = pendingToggle ?? (sortedPending.length > 0 || pendingCount > 0);
 
   async function patchOrder(id: string, body: Record<string, unknown>) {
     setBusyRow(id);
@@ -210,24 +257,22 @@ export default function OrdersPage() {
       return;
     }
     if (o.status === "PAID") {
-      void patchOrder(o.id, { status: "PICKED" });
+      void patchOrder(o.id, { status: "PICKED", pickedAt: new Date().toISOString() });
       return;
     }
     if (o.status === "PICKED") {
       router.push(`/orders/${o.id}?ship=1`);
       return;
     }
-    if (o.status === "SHIPPED") {
-      void patchOrder(o.id, {
-        status: "DELIVERED",
-        deliveredAt: new Date().toISOString(),
-      });
-      return;
-    }
   }
 
   const loading = queue === null;
-  const isEmpty = !loading && sortedQueue.length === 0 && sortedPending.length === 0;
+  const isEmpty =
+    !loading &&
+    sortedQueue.length === 0 &&
+    sortedPending.length === 0 &&
+    sortedInTransit.length === 0 &&
+    pendingCount === 0;
 
   return (
     <div className="min-h-full pb-28 sm:pb-16">
@@ -256,7 +301,7 @@ export default function OrdersPage() {
               ) : (
                 <>
                   <div className="text-4xl font-semibold text-ink leading-none nums">
-                    {heroCount} ready to ship
+                    {heroCount} to ship today
                   </div>
                   {breakdownParts.length > 0 ? (
                     <div className="mt-2 text-sm text-muted nums">
@@ -276,6 +321,10 @@ export default function OrdersPage() {
                   <SkeletonRow />
                   <SkeletonRow />
                 </>
+              ) : sortedQueue.length === 0 ? (
+                <li className="py-4 text-sm text-muted">
+                  Nothing to ship right now.
+                </li>
               ) : (
                 sortedQueue.map((o) => (
                   <Row
@@ -291,12 +340,53 @@ export default function OrdersPage() {
               )}
             </ul>
 
-            {sortedPending.length > 0 ? (
-              <section className="mt-8">
-                <h2 className="text-xs uppercase tracking-wide text-muted-soft px-1">
-                  Awaiting payment
-                </h2>
-                <ul className="mt-1 flex flex-col">
+            <Collapsible
+              open={inTransitOpen}
+              onToggle={() => setInTransitToggle(!inTransitOpen)}
+              label={
+                <>
+                  In transit{" "}
+                  <span className="text-muted-soft">({inTransitCount})</span>
+                </>
+              }
+            >
+              {sortedInTransit.length === 0 ? (
+                <div className="py-3 text-sm text-muted">Nothing in transit.</div>
+              ) : (
+                <ul className="flex flex-col">
+                  {sortedInTransit.map((o) => (
+                    <Row
+                      key={o.id}
+                      order={o}
+                      busy={busyRow === o.id}
+                      onAction={() => {}}
+                      onTogglePriority={() =>
+                        patchOrder(o.id, { priorityFlag: !o.priorityFlag })
+                      }
+                      hideAction
+                      showTracking
+                    />
+                  ))}
+                </ul>
+              )}
+            </Collapsible>
+
+            <Collapsible
+              open={pendingOpen}
+              onToggle={() => setPendingToggle(!pendingOpen)}
+              label={
+                <>
+                  Awaiting payment{" "}
+                  <span className="text-muted-soft">({pendingCount})</span>
+                </>
+              }
+            >
+              {sortedPending.length === 0 ? (
+                <div className="py-3 text-sm text-muted">
+                  Nothing awaiting payment.
+                </div>
+              ) : (
+                <ul className="flex flex-col">
                   {sortedPending.map((o) => (
                     <Row
                       key={o.id}
@@ -309,32 +399,28 @@ export default function OrdersPage() {
                     />
                   ))}
                 </ul>
-              </section>
-            ) : null}
+              )}
+            </Collapsible>
           </>
         )}
 
-        <hr className="my-7 border-divider" />
-
         <Collapsible
-          open={recentlyOpen}
-          onToggle={() => setRecentlyOpen((v) => !v)}
+          open={completedOpen}
+          onToggle={() => setCompletedOpen((v) => !v)}
           label={
             <>
-              Recently shipped{" "}
-              <span className="text-muted-soft">
-                ({(byStatus.DELIVERED ?? 0) + (byStatus.RELEASED ?? 0)})
-              </span>
+              Completed last 30 days{" "}
+              <span className="text-muted-soft">({completedCount})</span>
             </>
           }
         >
-          {recently === null ? (
+          {completed === null ? (
             <div className="py-3 text-sm text-muted">Loading…</div>
-          ) : recently.length === 0 ? (
-            <div className="py-3 text-sm text-muted">Nothing in the last 14 days.</div>
+          ) : sortedCompleted.length === 0 ? (
+            <div className="py-3 text-sm text-muted">Nothing in the last 30 days.</div>
           ) : (
             <ul className="flex flex-col">
-              {recently.map((o) => (
+              {sortedCompleted.map((o) => (
                 <Row
                   key={o.id}
                   order={o}
@@ -386,14 +472,15 @@ function Row({
   onAction,
   onTogglePriority,
   hideAction = false,
+  showTracking = false,
 }: {
   order: OrderRow;
   busy: boolean;
   onAction: () => void;
   onTogglePriority: () => void;
   hideAction?: boolean;
+  showTracking?: boolean;
 }) {
-  const meta = formatStatusMeta(order);
   const overdue = isOverdue(order);
   const action = primaryActionLabel(order.status);
 
@@ -411,7 +498,13 @@ function Row({
             {order.brand} {order.model}
             {order.referenceNumber ? ` ${order.referenceNumber}` : ""}
           </div>
-          <div className="text-xs text-muted">{meta}</div>
+          {showTracking ? (
+            <TrackingMeta order={order} />
+          ) : (
+            <div className={`text-xs ${overdue ? "text-warn" : "text-muted"}`}>
+              {formatStatusMeta(order)}
+            </div>
+          )}
         </div>
 
         {action && !hideAction ? (
@@ -461,6 +554,37 @@ function Row({
   );
 }
 
+function TrackingMeta({ order }: { order: OrderRow }) {
+  const carrier = order.carrier ?? "—";
+  const ago = order.shippedAt ? `Shipped ${relativeDays(order.shippedAt)}` : null;
+
+  return (
+    <div className="text-xs text-muted nums truncate">
+      {order.trackingNumber ? (
+        <>
+          <span>{carrier} </span>
+          {order.trackingUrl ? (
+            <a
+              href={order.trackingUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-accent hover:underline"
+            >
+              {order.trackingNumber}
+            </a>
+          ) : (
+            <span className="text-ink">{order.trackingNumber}</span>
+          )}
+          {ago ? <span> · {ago}</span> : null}
+        </>
+      ) : (
+        <span>{ago ?? "Shipped"}</span>
+      )}
+    </div>
+  );
+}
+
 function SkeletonRow() {
   return (
     <li className="grid grid-cols-[1fr_auto] items-center gap-3 px-1 py-4 border-b border-divider/60">
@@ -503,7 +627,7 @@ function Collapsible({
   children: ReactNode;
 }) {
   return (
-    <div className="py-1">
+    <div className="py-1 mt-2">
       <button
         type="button"
         onClick={onToggle}
@@ -695,8 +819,6 @@ function primaryActionLabel(status: Status): string | null {
       return "Pick";
     case "PICKED":
       return "Ship";
-    case "SHIPPED":
-      return "Confirm";
     default:
       return null;
   }
@@ -710,7 +832,7 @@ function formatStatusMeta(o: OrderRow): string {
     case "PAID":
       return `Paid ${ago(o.paymentConfirmedAt)}`;
     case "PICKED":
-      return `Picked ${ago(o.paymentConfirmedAt)}`;
+      return `Picked ${ago(o.pickedAt ?? o.paymentConfirmedAt)}`;
     case "SHIPPED":
       return `Shipped ${ago(o.shippedAt)}`;
     case "DELIVERED":
@@ -744,5 +866,4 @@ function isOverdue(o: OrderRow): boolean {
   return days > 3;
 }
 
-// suppress lint warning for unused formatUSD if not referenced
 void formatUSD;
