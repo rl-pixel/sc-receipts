@@ -5,6 +5,17 @@ export const config = {
 };
 
 export function proxy(request: NextRequest) {
+  // Machine-to-machine ingest path: if the request carries a valid
+  // X-Ingest-Key header, bypass the human basic-auth gate. The route handler
+  // (lib/auth.ts requireIngestKey) is responsible for final validation.
+  const ingestExpected = process.env.INGEST_API_KEY;
+  if (ingestExpected) {
+    const supplied = request.headers.get("x-ingest-key");
+    if (supplied && supplied === ingestExpected) {
+      return NextResponse.next();
+    }
+  }
+
   const password = process.env.ADMIN_PASSWORD;
   if (!password) return NextResponse.next();
 
