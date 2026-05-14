@@ -4,7 +4,7 @@ import { Wordmark } from "./Wordmark";
 export function TopNav({
   active,
 }: {
-  active?: "new" | "history" | "payouts" | "settings";
+  active?: "new" | "orders" | "history" | "payouts" | "settings";
 }) {
   return (
     <header className="sticky top-0 z-20 bg-bg/85 backdrop-blur-md border-b border-divider">
@@ -14,6 +14,7 @@ export function TopNav({
             <Wordmark size={13} />
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
+            <NavLink href="/orders" active={active === "orders"} label="Orders" />
             <NavLink href="/" active={active === "new"} label="New" />
             <NavLink href="/history" active={active === "history"} label="History" />
             <NavLink href="/payouts" active={active === "payouts"} label="Payouts" />

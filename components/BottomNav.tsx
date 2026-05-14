@@ -4,10 +4,11 @@ import {
   Clock,
   Wallet,
   Settings as SettingsIcon,
+  Package,
   type LucideIcon,
 } from "lucide-react";
 
-type Active = "new" | "history" | "payouts" | "settings";
+type Active = "new" | "orders" | "history" | "payouts" | "settings";
 
 const TABS: {
   href: string;
@@ -15,6 +16,7 @@ const TABS: {
   label: string;
   Icon: LucideIcon;
 }[] = [
+  { href: "/orders", active: "orders", label: "Orders", Icon: Package },
   { href: "/", active: "new", label: "New", Icon: ReceiptText },
   { href: "/history", active: "history", label: "History", Icon: Clock },
   { href: "/payouts", active: "payouts", label: "Payouts", Icon: Wallet },

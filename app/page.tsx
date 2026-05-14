@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Package } from "lucide-react";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
 import { QuickReceipt } from "@/components/QuickReceipt";
@@ -65,6 +67,23 @@ export default function NewReceiptPage() {
   const [error, setError] = useState<string | null>(null);
   const [reveals, setReveals] = useState<Reveals>(initialReveals);
   const [mode, setMode] = useState<"quick" | "manual">("quick");
+  const [activeOrders, setActiveOrders] = useState<{ count: number; totalCents: number } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/orders?status=PENDING,PAID,PICKED,SHIPPED")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        setActiveOrders({ count: d.count ?? 0, totalCents: d.totalCents ?? 0 });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const saved = loadForm();
@@ -412,6 +431,28 @@ export default function NewReceiptPage() {
     <div className="min-h-full pb-44 sm:pb-32">
       <TopNav active="new" />
       <main className="max-w-2xl mx-auto px-4 pt-6">
+        {activeOrders && activeOrders.count > 0 ? (
+          <Link
+            href="/orders"
+            className="mb-5 flex items-center justify-between gap-3 card-lift px-4 py-3 hover:border-accent transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-accent-soft flex items-center justify-center text-accent">
+                <Package size={18} />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-ink">
+                  {activeOrders.count} active order{activeOrders.count === 1 ? "" : "s"}
+                </div>
+                <div className="text-xs text-muted nums">
+                  {formatUSD(activeOrders.totalCents)} sale value · open queue →
+                </div>
+              </div>
+            </div>
+            <span className="text-accent text-sm font-medium">Open</span>
+          </Link>
+        ) : null}
+
         {mode === "quick" ? (
           <QuickReceipt onSwitchToManual={() => setMode("manual")} />
         ) : null}

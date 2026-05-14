@@ -10,6 +10,25 @@ datasource db {
   provider = "postgresql"
 }
 
+enum OrderStatus {
+  PENDING
+  PAID
+  PICKED
+  SHIPPED
+  DELIVERED
+  RELEASED
+  CANCELLED
+  REFUNDED
+}
+
+enum OrderSource {
+  CHRONO24
+  PRIVATE
+  STUDIO_CHRONO_SITE
+  REFERRAL
+  OTHER
+}
+
 model Customer {
   id        String    @id @default(cuid())
   name      String
@@ -24,6 +43,15 @@ model Customer {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   receipts  Receipt[]
+
+  source           OrderSource?
+  firstOrderAt     DateTime?
+  lastOrderAt      DateTime?
+  totalOrders      Int          @default(0)
+  totalSpentCents  Int          @default(0)
+  vipFlag          Boolean      @default(false)
+
+  orders Order[]
 }
 
 model Receipt {
@@ -68,6 +96,8 @@ model Receipt {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  order Order?
+
   @@index([createdAt])
   @@index([customerId])
   @@index([soldBy])
@@ -95,6 +125,8 @@ model Seller {
   sortOrder              Int     @default(0)
   createdAt              DateTime @default(now())
   payouts                Payout[]
+
+  assignedOrders Order[] @relation("OrderAssignment")
 }
 
 model Payout {
@@ -122,4 +154,79 @@ model AppSetting {
   key       String  @unique
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  externalOrderId String?     @unique
+  source          OrderSource @default(CHRONO24)
+  status          OrderStatus @default(PENDING)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  brand           String
+  model           String
+  referenceNumber String?
+  year            Int?
+  condition       String  @default("New")
+  hasBox          Boolean @default(false)
+  hasPapers       Boolean @default(false)
+  serial          String?
+
+  saleCents     Int
+  shippingCents Int    @default(0)
+  taxCents      Int    @default(0)
+  c24FeeCents   Int    @default(0)
+  netToUsCents  Int
+  currency      String @default("USD")
+
+  paymentMethod      String    @default("Chrono24Escrow")
+  paymentConfirmedAt DateTime?
+  escrowReleaseDate  DateTime?
+  payoutReceivedAt   DateTime?
+
+  assignedToSellerId String?
+  assignedToSeller   Seller? @relation("OrderAssignment", fields: [assignedToSellerId], references: [id])
+  pickedAt           DateTime?
+  shippedAt          DateTime?
+  carrier            String?
+  trackingNumber     String?
+  trackingUrl        String?
+  deliveredAt        DateTime?
+
+  receiptId String?  @unique
+  receipt   Receipt? @relation(fields: [receiptId], references: [id])
+
+  notes        String?
+  priorityFlag Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events OrderEvent[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([escrowReleaseDate])
+}
+
+model OrderEvent {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  type       String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus?
+
+  actor   String?
+  message String?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([createdAt])
 }
