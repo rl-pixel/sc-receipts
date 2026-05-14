@@ -45,6 +45,7 @@ type ListResponse = {
 
 const QUEUE_FILTERS: Status[] = ["PAID", "PICKED", "SHIPPED"];
 const RECENT_FILTERS: Status[] = ["DELIVERED", "RELEASED"];
+const POLL_MS = 30_000;
 const ALL_FILTERS: Status[] = [
   "PENDING",
   "PAID",
@@ -66,6 +67,7 @@ export default function OrdersPage() {
   const [otherOpen, setOtherOpen] = useState(false);
   const [busyRow, setBusyRow] = useState<string | null>(null);
   const [confirmPaidId, setConfirmPaidId] = useState<string | null>(null);
+  const [pendingActionCount, setPendingActionCount] = useState(0);
 
   async function loadQueue() {
     const res = await fetch(`/api/orders?status=${QUEUE_FILTERS.join(",")}`);
@@ -98,6 +100,16 @@ export default function OrdersPage() {
     if (recentlyOpen) await loadRecently();
   }
 
+  async function softRefresh() {
+    if (pendingActionCount > 0) return;
+    try {
+      await Promise.all([loadQueue(), loadPending()]);
+      if (recentlyOpen) await loadRecently();
+    } catch {
+      // swallow; next interval will retry
+    }
+  }
+
   useEffect(() => {
     void reloadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,6 +119,42 @@ export default function OrdersPage() {
     if (recentlyOpen && !recently) void loadRecently();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recentlyOpen]);
+
+  // Auto-refresh: poll every POLL_MS while the tab is visible, pause when hidden.
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    function start() {
+      if (interval) return;
+      interval = setInterval(() => {
+        void softRefresh();
+      }, POLL_MS);
+    }
+    function stop() {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void softRefresh();
+        start();
+      } else {
+        stop();
+      }
+    }
+
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recentlyOpen, pendingActionCount]);
 
   // Sort: priority desc → paymentConfirmedAt asc → createdAt asc
   const sortedQueue = useMemo(() => {
@@ -137,6 +185,7 @@ export default function OrdersPage() {
 
   async function patchOrder(id: string, body: Record<string, unknown>) {
     setBusyRow(id);
+    setPendingActionCount((n) => n + 1);
     try {
       const res = await fetch(`/api/orders/${id}`, {
         method: "PATCH",
@@ -151,6 +200,7 @@ export default function OrdersPage() {
       await reloadAll();
     } finally {
       setBusyRow(null);
+      setPendingActionCount((n) => Math.max(0, n - 1));
     }
   }
 
